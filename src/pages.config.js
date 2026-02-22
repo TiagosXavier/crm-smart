@@ -7,6 +7,7 @@ import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import Team from './pages/Team';
 import Templates from './pages/Templates';
+import AiAgents from './pages/AiAgents';
 import __Layout from './Layout.jsx';
 
 
@@ -20,6 +21,7 @@ export const PAGES = {
     "Settings": Settings,
     "Team": Team,
     "Templates": Templates,
+    "AiAgents": AiAgents,
 }
 
 export const pagesConfig = {

@@ -26,6 +26,7 @@ const menuItems = [
   { name: 'Pipeline', icon: Kanban, page: 'Pipeline' },
   { name: 'Templates', icon: FileText, page: 'Templates', roles: ['admin', 'supervisor'] },
   { name: 'Equipe', icon: UserCog, page: 'Team', roles: ['admin', 'supervisor'] },
+  { name: 'AI Agents', icon: Sparkles, page: 'AiAgents' },
   { name: 'Configurações', icon: Settings, page: 'Settings' },
 ];
 
