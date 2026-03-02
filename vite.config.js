@@ -24,6 +24,11 @@ export default defineConfig(({ command }) => {
           target: 'http://localhost:3000',
           changeOrigin: true,
         },
+        '/ai-agent-api': {
+          target: 'https://crmaiagent-production.up.railway.app',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/ai-agent-api/, ''),
+        },
       },
     },
   };
