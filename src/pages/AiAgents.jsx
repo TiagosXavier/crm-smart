@@ -1,4 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useMutation } from '@tanstack/react-query';
+import { useToast } from '@/components/ui/use-toast';
+import { useAuth } from '@/lib/AuthContext';
+import { createAgent, chatWithAgent } from '@/api/aiAgentApi';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -34,7 +38,8 @@ import {
     HelpCircle, // Nova
     Send, // Nova
     Eraser, // Nova
-    Code // Nova
+    Code, // Nova
+    Loader2
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
@@ -47,16 +52,23 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 const encoder = tiktoken.getEncoding('cl100k_base');
 
 const aiModels = [
+    { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+    { value: 'gpt-4o', label: 'GPT-4o' },
     { value: 'gpt-4', label: 'GPT-4' },
     { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
-    { value: 'claude-3-opus', label: 'Claude 3 Opus' },
-    { value: 'claude-3-sonnet', label: 'Claude 3 Sonnet' },
 ];
+
+const mapStatusToApi = (uiStatus) => {
+    if (uiStatus === 'off') return 'inactive';
+    return 'active';
+};
 
 const AiAgents = () => {
     const { register, setValue, watch, getValues } = useForm({
         defaultValues: {
-            aiModel: '',
+            botName: '',
+            botStatus: 'off',
+            aiModel: 'gpt-4o-mini',
             personality: '',
             goal: '',
             additionalInfo: '',
@@ -64,13 +76,61 @@ const AiAgents = () => {
         },
     });
 
+    const { user } = useAuth();
+    const { toast } = useToast();
+
     const aiModel = watch('aiModel');
     const personality = watch('personality');
     const goal = watch('goal');
     const additionalInfo = watch('additionalInfo');
+    const botStatus = watch('botStatus');
 
     const [chatMessages, setChatMessages] = useState([]);
+    const [agentId, setAgentId] = useState(null);
+    const [isChatLoading, setIsChatLoading] = useState(false);
     const chatContainerRef = useRef(null);
+
+    const createAgentMutation = useMutation({
+        mutationFn: (data) => createAgent(data),
+        onSuccess: (result) => {
+            setAgentId(result.agent_id);
+            toast({ title: 'Agente IA criado com sucesso!' });
+        },
+        onError: (error) => {
+            toast({
+                title: 'Erro ao criar agente IA',
+                description: error.message,
+                variant: 'destructive',
+            });
+        },
+    });
+
+    const handleSaveAgent = () => {
+        const values = getValues();
+
+        if (!values.botName?.trim()) {
+            toast({ title: 'Preencha o nome do bot', variant: 'destructive' });
+            return;
+        }
+        if (!values.personality?.trim()) {
+            toast({ title: 'Preencha a personalidade do bot', variant: 'destructive' });
+            return;
+        }
+        if (!values.goal?.trim()) {
+            toast({ title: 'Preencha o objetivo do bot', variant: 'destructive' });
+            return;
+        }
+
+        createAgentMutation.mutate({
+            company_id: user.company_id,
+            name: values.botName.trim(),
+            personality: values.personality.trim(),
+            goal: values.goal.trim(),
+            additional_info: values.additionalInfo?.trim() || '',
+            model: values.aiModel || 'gpt-4o-mini',
+            status: mapStatusToApi(values.botStatus),
+        });
+    };
 
     // Calcular tokens totais com base no conteúdo dos prompts
     const totalTokens = React.useMemo(() => {
@@ -95,16 +155,49 @@ const AiAgents = () => {
         setValue(fieldName, currentValue + variable);
     };
 
-    const handleSendMessage = (e) => {
+    const handleSendMessage = async (e) => {
         e?.preventDefault?.();
         const input = getValues('chatInput');
         if (!input?.trim()) return;
-        setChatMessages((prev) => [
-            ...prev,
-            { id: Date.now(), sender: 'user', text: input.trim() },
-            { id: Date.now() + 1, sender: 'bot', text: 'Esta é uma resposta simulada do bot no playground de teste.' },
-        ]);
+
+        if (!agentId) {
+            toast({
+                title: 'Salve o agente primeiro',
+                description: 'Crie e salve o agente antes de testar o chat.',
+                variant: 'destructive',
+            });
+            return;
+        }
+
+        const userMessage = { id: Date.now(), sender: 'user', text: input.trim() };
+        setChatMessages((prev) => [...prev, userMessage]);
         setValue('chatInput', '');
+        setIsChatLoading(true);
+
+        try {
+            const result = await chatWithAgent({
+                user_id: user.id,
+                texto: input.trim(),
+                agent_id: agentId,
+                company_id: user.company_id,
+            });
+            setChatMessages((prev) => [
+                ...prev,
+                { id: Date.now(), sender: 'bot', text: result.response },
+            ]);
+        } catch (error) {
+            toast({
+                title: 'Erro ao enviar mensagem',
+                description: error.message,
+                variant: 'destructive',
+            });
+            setChatMessages((prev) => [
+                ...prev,
+                { id: Date.now(), sender: 'bot', text: 'Erro ao obter resposta. Tente novamente.' },
+            ]);
+        } finally {
+            setIsChatLoading(false);
+        }
     };
 
     const handleClearChat = () => {
@@ -202,13 +295,13 @@ const AiAgents = () => {
                             {/* Nome do Bot */}
                             <div>
                                 <Label htmlFor="bot-name" className="mb-2 block">Nome do Bot</Label>
-                                <Input id="bot-name" placeholder="Ex: 'Bot de Assistente de Vendas'" />
+                                <Input id="bot-name" placeholder="Ex: 'Bot de Assistente de Vendas'" {...register('botName')} />
                             </div>
 
                             {/* Status do Bot */}
                             <div>
                                 <Label className="mb-2 block">Status do Bot</Label>
-                                <RadioGroup defaultValue="off" className="grid grid-cols-3 gap-4">
+                                <RadioGroup value={botStatus} onValueChange={(value) => setValue('botStatus', value)} className="grid grid-cols-3 gap-4">
                                     <Label
                                         htmlFor="status-off"
                                         className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-vibrant-blue [&:has([data-state=checked])]:border-vibrant-blue"
@@ -284,6 +377,30 @@ const AiAgents = () => {
                                         </SelectItem>
                                     </SelectContent>
                                 </Select>
+                            </div>
+                            {/* Botão Salvar */}
+                            <div className="lg:col-span-2 flex items-center justify-between mt-2">
+                                <div>
+                                    {agentId && (
+                                        <p className="text-sm text-emerald-600">
+                                            Agente criado (ID: {agentId.slice(0, 8)}...)
+                                        </p>
+                                    )}
+                                </div>
+                                <Button
+                                    onClick={handleSaveAgent}
+                                    disabled={createAgentMutation.isPending}
+                                    className="bg-vibrant-blue hover:bg-vibrant-blue/90 text-white"
+                                >
+                                    {createAgentMutation.isPending ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                            Salvando...
+                                        </>
+                                    ) : (
+                                        'Salvar Agente'
+                                    )}
+                                </Button>
                             </div>
                         </div>
                     </Card>
@@ -455,12 +572,24 @@ const AiAgents = () => {
                                         </motion.div>
                                     ))}
                                 </AnimatePresence>
+                                {isChatLoading && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 20 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        className="text-left mb-2"
+                                    >
+                                        <span className="bg-muted text-foreground rounded-lg px-3 py-1.5 inline-block">
+                                            <Loader2 className="h-4 w-4 animate-spin inline mr-1" /> Digitando...
+                                        </span>
+                                    </motion.div>
+                                )}
                             </div>
                             <div className="flex items-center gap-2">
                                 <Input
-                                    placeholder="Digite sua mensagem..."
+                                    placeholder={agentId ? "Digite sua mensagem..." : "Salve o agente para habilitar o chat..."}
                                     className="flex-1"
                                     {...register('chatInput')}
+                                    disabled={!agentId || isChatLoading}
                                     onKeyPress={(e) => {
                                         if (e.key === 'Enter') {
                                             handleSendMessage(e);
@@ -468,8 +597,12 @@ const AiAgents = () => {
                                     }}
                                     data-testid="chat-input"
                                 />
-                                <Button size="icon" onClick={handleSendMessage} data-testid="chat-send-button">
-                                    <Send className="h-5 w-5" />
+                                <Button size="icon" onClick={handleSendMessage} disabled={!agentId || isChatLoading} data-testid="chat-send-button">
+                                    {isChatLoading ? (
+                                        <Loader2 className="h-5 w-5 animate-spin" />
+                                    ) : (
+                                        <Send className="h-5 w-5" />
+                                    )}
                                 </Button>
                                 <Button variant="outline" size="icon" onClick={handleClearChat}>
                                     <Eraser className="h-5 w-5" />
