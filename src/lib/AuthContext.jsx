@@ -42,6 +42,7 @@ export const AuthProvider = ({ children }) => {
           full_name: 'Usuário Dev',
           role: 'admin',
           status: 'online',
+          company_id: 'd0f0c0d0-0000-0000-0000-000000000001',
         };
         setUser(mockUser);
         setIsAuthenticated(true);
@@ -55,6 +56,7 @@ export const AuthProvider = ({ children }) => {
         full_name: 'Usuário Dev',
         role: 'admin',
         status: 'online',
+        company_id: 'd0f0c0d0-0000-0000-0000-000000000001',
       };
       setUser(mockUser);
       setIsAuthenticated(true);
