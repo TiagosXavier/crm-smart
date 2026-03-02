@@ -1,9 +1,12 @@
 // AI Agent API Client - Serviço externo no Railway
 // Separado do apiClient.js pois usa base URL diferente e não requer auth token do CRM
+// Em dev usa proxy do Vite (/ai-agent-api) para evitar CORS
+// Em produção usa a URL direta do Railway
 
-const AI_AGENT_API_URL =
-  import.meta.env.VITE_AI_AGENT_API_URL ||
-  'https://crmaiagent-production.up.railway.app';
+const isDev = import.meta.env.DEV;
+const AI_AGENT_API_URL = isDev
+  ? '/ai-agent-api'
+  : (import.meta.env.VITE_AI_AGENT_API_URL || 'https://crmaiagent-production.up.railway.app');
 
 async function aiAgentRequest(endpoint, options = {}) {
   const url = `${AI_AGENT_API_URL}${endpoint}`;

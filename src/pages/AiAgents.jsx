@@ -85,6 +85,7 @@ const AiAgents = () => {
     const additionalInfo = watch('additionalInfo');
     const botStatus = watch('botStatus');
 
+    const [activeTab, setActiveTab] = useState('bot-settings');
     const [chatMessages, setChatMessages] = useState([]);
     const [agentId, setAgentId] = useState(null);
     const [isChatLoading, setIsChatLoading] = useState(false);
@@ -209,7 +210,7 @@ const AiAgents = () => {
             <h1 className="text-3xl font-bold mb-6">Configuração de Agentes IA</h1>
 
             {/* Top Navigation Tabs */}
-            <Tabs defaultValue="bot-settings" className="w-full mb-8">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-8">
                 <TabsList className="grid w-full grid-cols-4 md:w-[600px] lg:w-[800px]">
                     <TabsTrigger value="bot-settings">
                         <Settings className="mr-2 h-4 w-4" /> Configurações do Bot
@@ -378,30 +379,6 @@ const AiAgents = () => {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            {/* Botão Salvar */}
-                            <div className="lg:col-span-2 flex items-center justify-between mt-2">
-                                <div>
-                                    {agentId && (
-                                        <p className="text-sm text-emerald-600">
-                                            Agente criado (ID: {agentId.slice(0, 8)}...)
-                                        </p>
-                                    )}
-                                </div>
-                                <Button
-                                    onClick={handleSaveAgent}
-                                    disabled={createAgentMutation.isPending}
-                                    className="bg-vibrant-blue hover:bg-vibrant-blue/90 text-white"
-                                >
-                                    {createAgentMutation.isPending ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                            Salvando...
-                                        </>
-                                    ) : (
-                                        'Salvar Agente'
-                                    )}
-                                </Button>
-                            </div>
                         </div>
                     </Card>
 
@@ -413,7 +390,7 @@ const AiAgents = () => {
                                 Teste seu bot configurado em um ambiente de teste para garantir desempenho ideal.
                             </p>
                         </div>
-                        <Button className="bg-vibrant-blue hover:bg-vibrant-blue/90 text-white">
+                        <Button onClick={() => setActiveTab('bot-goals')} className="bg-vibrant-blue hover:bg-vibrant-blue/90 text-white">
                             <Zap className="mr-2 h-4 w-4" /> Testar Bot
                         </Button>
                     </Card>
@@ -431,11 +408,18 @@ const AiAgents = () => {
                     <Card className="p-6 shadow-sm border-gray-200 mb-8">
                         <div className="flex items-center justify-between mb-4">
                             <h3 className="text-xl font-bold">Configurações do Agente IA</h3>
-                            <Button variant="ghost" size="icon" className="text-muted-foreground" data-testid="settings-button">
-                                <Settings2 className="h-5 w-5" />
-                            </Button>
+                            {agentId && (
+                                <span className="text-sm text-emerald-600 font-medium">
+                                    Agente ativo (ID: {agentId.slice(0, 8)}...)
+                                </span>
+                            )}
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                            {/* Nome do Bot */}
+                            <div>
+                                <Label htmlFor="ai-bot-name" className="mb-2 block">Nome do Bot</Label>
+                                <Input id="ai-bot-name" placeholder="Ex: Bot de Vendas" {...register('botName')} />
+                            </div>
                             {/* Seletor de Modelo de IA */}
                             <div>
                                 <Label htmlFor="ai-model" className="mb-2 block">Modelo de IA</Label>
@@ -452,11 +436,29 @@ const AiAgents = () => {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            {/* Contador de Tokens */}
-                            <div className="flex flex-col items-start md:items-end">
-                                <p className="text-sm text-muted-foreground">Tokens utilizados: <span className="font-semibold text-foreground">{totalTokens}</span></p>
-                                <p className="text-xs text-muted-foreground">Otimizado para {aiModel}</p>
+                            {/* Salvar Agente */}
+                            <div>
+                                <Button
+                                    onClick={handleSaveAgent}
+                                    disabled={createAgentMutation.isPending}
+                                    className="w-full bg-vibrant-blue hover:bg-vibrant-blue/90 text-white"
+                                >
+                                    {createAgentMutation.isPending ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                            Salvando...
+                                        </>
+                                    ) : agentId ? (
+                                        'Salvar Novo Agente'
+                                    ) : (
+                                        'Criar e Testar Agente'
+                                    )}
+                                </Button>
                             </div>
+                        </div>
+                        {/* Contador de Tokens */}
+                        <div className="flex justify-end mt-3">
+                            <p className="text-xs text-muted-foreground">Tokens: <span className="font-semibold text-foreground">{totalTokens}</span> | Modelo: {aiModel}</p>
                         </div>
                     </Card>
 
