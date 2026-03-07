@@ -61,6 +61,25 @@ export async function createAgent({
   });
 }
 
+export async function listAgents(company_id) {
+  return aiAgentRequest(`/v1/agents?company_id=${encodeURIComponent(company_id)}`, {
+    method: 'GET',
+  });
+}
+
+export async function updateAgent(agent_id, data) {
+  return aiAgentRequest(`/v1/agents/${encodeURIComponent(agent_id)}`, {
+    method: 'PUT',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteAgent(agent_id) {
+  return aiAgentRequest(`/v1/agents/${encodeURIComponent(agent_id)}`, {
+    method: 'DELETE',
+  });
+}
+
 export async function chatWithAgent({
   user_id,
   texto,
