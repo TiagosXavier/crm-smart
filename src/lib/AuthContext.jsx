@@ -1,121 +1,100 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
-import { api } from '@/api/apiClient';
+import React, { createContext, useState, useContext, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
 
-const AuthContext = createContext();
+const AuthContext = createContext()
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [isLoadingPublicSettings, setIsLoadingPublicSettings] = useState(false);
-  const [authError, setAuthError] = useState(null);
-  const [appPublicSettings, setAppPublicSettings] = useState({});
+  const [user, setUser]                   = useState(null)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true)
+  const [authError, setAuthError]         = useState(null)
+
+  // Carrega o perfil do banco e atualiza o estado
+  const loadProfile = async (authUser) => {
+    try {
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single()
+
+      if (error || !profile) {
+        // Perfil ainda não foi criado pelo trigger (raro, mas possível em testes)
+        setUser({ id: authUser.id, email: authUser.email, full_name: authUser.email, role: 'agent' })
+      } else {
+        setUser({ ...profile, created_date: profile.created_at, updated_date: profile.updated_at })
+      }
+      setIsAuthenticated(true)
+    } catch (err) {
+      console.error('Erro ao carregar perfil:', err)
+    } finally {
+      setIsLoadingAuth(false)
+    }
+  }
 
   useEffect(() => {
-    checkAuth();
-  }, []);
-
-  const checkAuth = async () => {
-    setIsLoadingAuth(true);
-    setAuthError(null);
-
-    try {
-      // Verifica se há token salvo
-      const token = localStorage.getItem('auth_token');
-
-      if (token) {
-        // Tenta obter o usuário atual
-        const currentUser = await api.auth.me();
-        if (currentUser) {
-          setUser(currentUser);
-          setIsAuthenticated(true);
-        } else {
-          // Token inválido, remove
-          localStorage.removeItem('auth_token');
-          setIsAuthenticated(false);
-        }
+    // Verifica sessão existente ao montar
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        loadProfile(session.user)
       } else {
-        // Sem token - modo desenvolvimento, cria usuário mock
-        const mockUser = {
-          id: 'dev-user-1',
-          email: 'dev@example.com',
-          full_name: 'Usuário Dev',
-          role: 'admin',
-          status: 'online',
-          company_id: 'd0f0c0d0-0000-0000-0000-000000000001',
-        };
-        setUser(mockUser);
-        setIsAuthenticated(true);
+        setIsLoadingAuth(false)
       }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      // Em desenvolvimento, usa usuário mock mesmo com erro
-      const mockUser = {
-        id: 'dev-user-1',
-        email: 'dev@example.com',
-        full_name: 'Usuário Dev',
-        role: 'admin',
-        status: 'online',
-        company_id: 'd0f0c0d0-0000-0000-0000-000000000001',
-      };
-      setUser(mockUser);
-      setIsAuthenticated(true);
-    } finally {
-      setIsLoadingAuth(false);
-    }
-  };
+    })
+
+    // Escuta mudanças de autenticação (login, logout, refresh de token)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        loadProfile(session.user)
+      } else {
+        setUser(null)
+        setIsAuthenticated(false)
+        setIsLoadingAuth(false)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
 
   const login = async (email, password) => {
-    try {
-      const result = await api.auth.login(email, password);
-      if (result.user) {
-        setUser(result.user);
-        setIsAuthenticated(true);
-      }
-      return result;
-    } catch (error) {
-      setAuthError({
-        type: 'login_failed',
-        message: error.message || 'Login failed',
-      });
-      throw error;
+    setAuthError(null)
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      const msg = error.message === 'Invalid login credentials'
+        ? 'E-mail ou senha incorretos.'
+        : error.message
+      setAuthError({ type: 'login_failed', message: msg })
+      throw new Error(msg)
     }
-  };
+    return data
+  }
 
-  const logout = () => {
-    setUser(null);
-    setIsAuthenticated(false);
-    api.auth.logout();
-  };
-
-  const navigateToLogin = () => {
-    api.auth.redirectToLogin(window.location.href);
-  };
+  const logout = async () => {
+    await supabase.auth.signOut()
+    setUser(null)
+    setIsAuthenticated(false)
+  }
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated,
-        isLoadingAuth,
-        isLoadingPublicSettings,
-        authError,
-        appPublicSettings,
-        login,
-        logout,
-        navigateToLogin,
-        checkAuth,
-      }}
-    >
+    <AuthContext.Provider value={{
+      user,
+      isAuthenticated,
+      isLoadingAuth,
+      isLoadingPublicSettings: false,
+      authError,
+      appPublicSettings: {},
+      login,
+      logout,
+      navigateToLogin: () => {},
+      checkAuth: () => supabase.auth.getSession(),
+    }}>
       {children}
     </AuthContext.Provider>
-  );
-};
+  )
+}
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
+  const context = useContext(AuthContext)
+  if (!context) throw new Error('useAuth must be used within an AuthProvider')
+  return context
+}

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { api } from '@/api/client';
+import { createClient } from '@supabase/supabase-js';
+import { supabase } from '@/lib/supabase';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,36 +20,67 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Mail, Loader2 } from 'lucide-react';
+import { Mail, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+
+// Cliente isolado para criação de usuários — não afeta a sessão do admin atual
+const signupClient = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY,
+  { auth: { persistSession: false, storageKey: 'crm_signup_isolated' } }
+);
 
 export default function InviteUserDialog({ open, onOpenChange }) {
   const [formData, setFormData] = useState({
     email: '',
     full_name: '',
-    role: 'user',
+    role: 'agent',
+    password: '',
   });
+  const [showPassword, setShowPassword] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const inviteMutation = useMutation({
     mutationFn: async (data) => {
-      // Cria o usuário diretamente no backend
-      const newUser = await api.entities.User.create({
+      // 1. Cria o usuário no Supabase Auth — dispara o trigger que cria o profile
+      const { data: authData, error: signUpError } = await signupClient.auth.signUp({
         email: data.email,
-        full_name: data.full_name,
-        role: data.role,
-        status: 'pending',
-        is_active: true,
+        password: data.password,
+        options: {
+          data: {
+            full_name: data.full_name,
+            role: data.role,
+          },
+        },
       });
 
-      return newUser;
+      if (signUpError) throw new Error(signUpError.message);
+      if (!authData.user) throw new Error('Erro ao criar usuário. Tente novamente.');
+
+      // 2. Aguarda o trigger criar o profile e então atualiza full_name e role
+      //    (necessário pois o trigger pode ser mais lento que a query abaixo)
+      await new Promise(r => setTimeout(r, 800));
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ full_name: data.full_name, role: data.role })
+        .eq('id', authData.user.id);
+
+      if (profileError) {
+        // Não é crítico — o profile pode ainda não existir se email confirmation estiver ativo
+        console.warn('Profile update after signup:', profileError.message);
+      }
+
+      return authData.user;
     },
     onSuccess: (user) => {
       toast({
-        title: 'Usuário criado!',
-        description: `${user.full_name} foi adicionado à equipe.`,
+        title: 'Usuário criado com sucesso!',
+        description: `${formData.full_name} foi adicionado à equipe. ${
+          user.email_confirmed_at ? '' : 'Um e-mail de confirmação foi enviado.'
+        }`,
       });
       queryClient.invalidateQueries({ queryKey: ['users'] });
       resetForm();
@@ -57,26 +89,31 @@ export default function InviteUserDialog({ open, onOpenChange }) {
     onError: (error) => {
       toast({
         title: 'Erro ao criar usuário',
-        description: error.message || 'Tente novamente mais tarde.',
+        description: error.message,
         variant: 'destructive',
       });
     },
   });
 
   const resetForm = () => {
-    setFormData({
-      email: '',
-      full_name: '',
-      role: 'user',
-    });
+    setFormData({ email: '', full_name: '', role: 'agent', password: '' });
+    setShowPassword(false);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.email || !formData.full_name) {
+    if (!formData.email || !formData.full_name || !formData.password) {
       toast({
         title: 'Campos obrigatórios',
-        description: 'Preencha nome e email.',
+        description: 'Preencha nome, email e senha.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (formData.password.length < 6) {
+      toast({
+        title: 'Senha muito curta',
+        description: 'A senha deve ter pelo menos 6 caracteres.',
         variant: 'destructive',
       });
       return;
@@ -85,7 +122,7 @@ export default function InviteUserDialog({ open, onOpenChange }) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); onOpenChange(v); }}>
       <DialogContent className="bg-card border-border text-foreground">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -93,9 +130,10 @@ export default function InviteUserDialog({ open, onOpenChange }) {
             Adicionar Novo Usuário
           </DialogTitle>
           <DialogDescription className="text-muted-foreground">
-            Adicione um novo membro à equipe.
+            Cria uma nova conta e adiciona o usuário à equipe.
           </DialogDescription>
         </DialogHeader>
+
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -124,6 +162,31 @@ export default function InviteUserDialog({ open, onOpenChange }) {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="password">Senha Temporária *</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="mínimo 6 caracteres"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="bg-background border-border pr-10"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Compartilhe a senha com o novo usuário. Ele poderá alterá-la no perfil.
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="role">Cargo</Label>
               <Select
                 value={formData.role}
@@ -133,24 +196,22 @@ export default function InviteUserDialog({ open, onOpenChange }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-border">
-                  <SelectItem value="user">Atendente</SelectItem>
+                  <SelectItem value="agent">Atendente</SelectItem>
+                  <SelectItem value="vendedor">Vendedor</SelectItem>
+                  <SelectItem value="suporte">Suporte</SelectItem>
                   <SelectItem value="supervisor">Supervisor</SelectItem>
+                  <SelectItem value="gerente">Gerente</SelectItem>
                   <SelectItem value="admin">Administrador</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
-                O usuário poderá fazer login com o email fornecido.
-              </p>
             </div>
           </div>
+
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
-                resetForm();
-                onOpenChange(false);
-              }}
+              onClick={() => { resetForm(); onOpenChange(false); }}
               disabled={inviteMutation.isPending}
             >
               Cancelar
@@ -161,15 +222,9 @@ export default function InviteUserDialog({ open, onOpenChange }) {
               className="bg-primary hover:bg-primary/90"
             >
               {inviteMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Criando...
-                </>
+                <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando...</>
               ) : (
-                <>
-                  <Mail className="w-4 h-4 mr-2" />
-                  Adicionar Usuário
-                </>
+                <><Mail className="w-4 h-4 mr-2" />Adicionar Usuário</>
               )}
             </Button>
           </DialogFooter>

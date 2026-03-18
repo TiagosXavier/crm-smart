@@ -1,176 +1,188 @@
-// API Client - Substitui completamente o Base44 SDK
-// Usa o backend Node.js próprio
+// API Client — Supabase
+// Mantém a mesma interface pública do cliente anterior para não quebrar as páginas existentes.
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+import { supabase } from '@/lib/supabase'
 
-// Helper para fazer requisições
-async function request(endpoint, options = {}) {
-  const url = `${API_URL}${endpoint}`;
+// ─── Mapeamento entity → tabela ────────────────────────────────────────────────
+const TABLE_MAP = {
+  contact:       'contacts',
+  conversation:  'conversations',
+  task:          'tasks',
+  user:          'profiles',       // usuários vivem em profiles
+  template:      'templates',
+  aiconfig:      'ai_configs',
+  notification:  'notifications',
+  pipelinedeal:  'pipeline_deals',
+  pipelinestage: 'pipeline_stages',
+  product:       'products',
+}
 
-  const config = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-    ...options,
-  };
+function getTable(entityName) {
+  const key = entityName.toLowerCase().replace(/[^a-z]/g, '')
+  return TABLE_MAP[key] ?? key + 's'
+}
 
-  // Adiciona token de auth se existir
-  const token = localStorage.getItem('auth_token');
-  if (token) {
-    config.headers['Authorization'] = `Bearer ${token}`;
-  }
-
-  try {
-    const response = await fetch(url, config);
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: response.statusText }));
-      throw new Error(error.error || `HTTP ${response.status}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error(`API Error [${endpoint}]:`, error.message);
-    throw error;
+// ─── Normalização de campos ────────────────────────────────────────────────────
+// Adiciona aliases para manter compatibilidade com os nomes usados nas páginas.
+function normalize(record) {
+  if (!record) return record
+  return {
+    ...record,
+    // Timestamps: páginas usam created_date/updated_date, banco usa created_at/updated_at
+    created_date: record.created_at ?? record.created_date,
+    updated_date: record.updated_at ?? record.updated_date,
+    // profiles: páginas usam max_simultaneous, banco usa max_simultaneous_conversations
+    max_simultaneous: record.max_simultaneous_conversations ?? record.max_simultaneous,
+    // contacts: páginas usam last_contact, banco usa last_contact_at
+    last_contact: record.last_contact_at ?? record.last_contact,
+    // notifications: páginas usam read, banco usa is_read
+    read: record.is_read ?? record.read,
   }
 }
 
-// Create entity methods
-const createEntityMethods = (entityName) => {
-  // Pluralização simples (adiciona 's' ou ajusta casos especiais)
-  const pluralize = (name) => {
-    const lower = name.toLowerCase();
-    if (lower.endsWith('s')) return lower;
-    if (lower.endsWith('y')) return lower.slice(0, -1) + 'ies';
-    return lower + 's';
-  };
+// Remove/traduz campos antes de inserir/atualizar (o banco controla timestamps)
+function prepareData(data) {
+  // eslint-disable-next-line no-unused-vars
+  const { created_date, updated_date, created_at, updated_at, max_simultaneous, read, ...rest } = data
 
-  const endpoint = `/${pluralize(entityName)}`;
+  // Traduz max_simultaneous → max_simultaneous_conversations
+  if (max_simultaneous !== undefined) {
+    rest.max_simultaneous_conversations = max_simultaneous
+  }
+  // Traduz read → is_read
+  if (read !== undefined) {
+    rest.is_read = read
+  }
+  return rest
+}
+
+// ─── Parser de sort ────────────────────────────────────────────────────────────
+// Aceita '-created_date' (desc) e 'name' (asc), igual ao backend anterior.
+function parseSort(sort) {
+  if (!sort) return { column: 'created_at', ascending: false }
+  const ascending = !sort.startsWith('-')
+  let column = sort.replace(/^-/, '')
+  if (column === 'created_date') column = 'created_at'
+  if (column === 'updated_date') column = 'updated_at'
+  return { column, ascending }
+}
+
+// ─── Factory de métodos por entidade ──────────────────────────────────────────
+function createEntityMethods(entityName) {
+  const table = getTable(entityName)
 
   return {
-    // List entities with optional sort and limit
     list: async (sort = '-created_date', limit = null) => {
-      const params = new URLSearchParams();
-      if (sort) params.append('sort', sort);
-      if (limit) params.append('limit', limit);
-      const queryString = params.toString();
-      return await request(`${endpoint}${queryString ? `?${queryString}` : ''}`);
+      const { column, ascending } = parseSort(sort)
+      let query = supabase.from(table).select('*').order(column, { ascending })
+      if (limit) query = query.limit(Number(limit))
+      const { data, error } = await query
+      if (error) throw new Error(error.message)
+      return (data ?? []).map(normalize)
     },
 
-    // Get entity by ID
     get: async (id) => {
-      return await request(`${endpoint}/${id}`);
+      const { data, error } = await supabase
+        .from(table).select('*').eq('id', id).single()
+      if (error) throw new Error(error.message)
+      return normalize(data)
     },
 
-    // Create new entity
-    create: async (data) => {
-      return await request(endpoint, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
+    create: async (rawData) => {
+      const { data: { user } } = await supabase.auth.getUser()
+      const payload = {
+        // Injeta created_by automaticamente se a tabela tiver o campo e ele não vier preenchido
+        ...(user ? { created_by: user.id } : {}),
+        ...prepareData(rawData),
+      }
+      const { data, error } = await supabase
+        .from(table).insert(payload).select().single()
+      if (error) throw new Error(error.message)
+      return normalize(data)
     },
 
-    // Update entity
-    update: async (id, data) => {
-      return await request(`${endpoint}/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      });
+    update: async (id, rawData) => {
+      const { data, error } = await supabase
+        .from(table).update(prepareData(rawData)).eq('id', id).select().single()
+      if (error) throw new Error(error.message)
+      return normalize(data)
     },
 
-    // Delete entity
     delete: async (id) => {
-      return await request(`${endpoint}/${id}`, {
-        method: 'DELETE',
-      });
+      const { error } = await supabase.from(table).delete().eq('id', id)
+      if (error) throw new Error(error.message)
+      return { success: true }
     },
 
-    // Query with filters
+    // Filtros por igualdade exata: { status: 'novo', company: 'ACME' }
     filter: async (filters = {}) => {
-      const queryString = new URLSearchParams(filters).toString();
-      return await request(`${endpoint}${queryString ? `?${queryString}` : ''}`);
+      let query = supabase.from(table).select('*')
+      Object.entries(filters).forEach(([key, value]) => {
+        query = query.eq(key, value)
+      })
+      const { data, error } = await query
+      if (error) throw new Error(error.message)
+      return (data ?? []).map(normalize)
     },
-  };
-};
+  }
+}
 
-// Auth methods (simplificado - sem Base44)
-const createAuthMethods = () => {
+// ─── Auth ─────────────────────────────────────────────────────────────────────
+function createAuthMethods() {
   return {
-    // Get current user
     me: async () => {
-      try {
-        return await request('/auth/me');
-      } catch {
-        return null;
-      }
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return null
+      const { data: profile } = await supabase
+        .from('profiles').select('*').eq('id', user.id).single()
+      return profile ? normalize(profile) : null
     },
 
-    // Update current user
-    updateMe: async (data) => {
-      return await request('/auth/me', {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      });
+    updateMe: async (updates) => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('Não autenticado')
+      const { data, error } = await supabase
+        .from('profiles').update(prepareData(updates)).eq('id', user.id).select().single()
+      if (error) throw new Error(error.message)
+      return normalize(data)
     },
 
-    // Login
     login: async (email, password) => {
-      const result = await request('/auth/login', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      });
-      if (result.token) {
-        localStorage.setItem('auth_token', result.token);
-      }
-      return result;
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) throw new Error(error.message)
+      const { data: profile } = await supabase
+        .from('profiles').select('*').eq('id', data.user.id).single()
+      return { user: profile ? normalize(profile) : data.user, session: data.session }
     },
 
-    // Logout
-    logout: () => {
-      localStorage.removeItem('auth_token');
-      // Opcional: redirecionar
-      window.location.href = '/';
+    logout: async () => {
+      await supabase.auth.signOut()
+      window.location.href = '/'
     },
 
-    // Redirect to login (compatibilidade)
-    redirectToLogin: (returnUrl) => {
-      localStorage.setItem('auth_return_url', returnUrl || window.location.href);
-      window.location.href = '/login';
+    isAuthenticated: async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      return !!session
     },
 
-    // Check if authenticated
-    isAuthenticated: () => {
-      return !!localStorage.getItem('auth_token');
-    },
-  };
-};
+    // Mantido para compatibilidade (não redireciona mais, a UI controla)
+    redirectToLogin: () => {},
+  }
+}
 
-// API Client (compatível com a estrutura do Base44)
+// ─── Export ───────────────────────────────────────────────────────────────────
 export const api = {
   entities: {
-    Contact: createEntityMethods('Contact'),
-    Conversation: createEntityMethods('Conversation'),
-    Task: createEntityMethods('Task'),
-    User: createEntityMethods('User'),
-    Template: createEntityMethods('Template'),
-    AIConfig: createEntityMethods('AIConfig'),
-    Notification: createEntityMethods('Notification'),
+    Contact:       createEntityMethods('Contact'),
+    Conversation:  createEntityMethods('Conversation'),
+    Task:          createEntityMethods('Task'),
+    User:          createEntityMethods('User'),
+    Template:      createEntityMethods('Template'),
+    AIConfig:      createEntityMethods('AIConfig'),
+    Notification:  createEntityMethods('Notification'),
+    PipelineDeal:  createEntityMethods('PipelineDeal'),
+    PipelineStage: createEntityMethods('PipelineStage'),
+    Product:       createEntityMethods('Product'),
   },
-
-  // Auth SDK
   auth: createAuthMethods(),
-
-  // Helper para seed de dados
-  seed: async (data) => {
-    return await request('/seed', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-
-  // Health check
-  health: async () => {
-    return await request('/health');
-  },
-};
+}

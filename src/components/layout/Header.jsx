@@ -101,7 +101,7 @@ export default function Header({ user, collapsed }) {
         </Select>
 
         {/* Notifications */}
-        <NotificationsPanel userEmail={user?.email} />
+        <NotificationsPanel />
 
         {/* Theme Toggle */}
         <Button
