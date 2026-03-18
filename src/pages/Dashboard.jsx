@@ -1,42 +1,40 @@
-import React, { useState } from 'react';
-import { api } from '@/api/client';
-import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { createPageUrl } from '@/utils';
-import MetricsCard from '../components/dashboard/MetricsCard';
-import AgentsOnlineDialog from '../components/dashboard/AgentsOnlineDialog';
-import ActiveTemplatesDialog from '../components/dashboard/ActiveTemplatesDialog';
-import TodayConversationsDialog from '../components/dashboard/TodayConversationsDialog';
-import ExportReportDialog from '../components/dashboard/ExportReportDialog';
-import PerformanceChart from '../components/dashboard/PerformanceChart';
+import React, { useState } from "react";
+import { api } from "@/api/client";
+import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { createPageUrl } from "@/utils";
+import MetricsCard from "../components/dashboard/MetricsCard";
+import AgentsOnlineDialog from "../components/dashboard/AgentsOnlineDialog";
+import ActiveTemplatesDialog from "../components/dashboard/ActiveTemplatesDialog";
+import TodayConversationsDialog from "../components/dashboard/TodayConversationsDialog";
+import ExportReportDialog from "../components/dashboard/ExportReportDialog";
+import PerformanceChart from "../components/dashboard/PerformanceChart";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from "@/components/ui/select";
 import {
   Users,
   UserCheck,
-  FileText,
   MessageSquare,
-  TrendingUp,
   Clock,
   Phone,
   Filter,
   X,
   FileDown,
   Target,
-  Zap
-} from 'lucide-react';
+  Zap,
+} from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -49,27 +47,24 @@ import {
   Bar,
   PieChart,
   Pie,
-  Cell
-} from 'recharts';
-import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-
-
+  Cell,
+} from "recharts";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const [filters, setFilters] = useState({
-    dateFrom: '',
-    dateTo: '',
-    agent: 'all',
-    chartType: 'area'
+    dateFrom: "",
+    dateTo: "",
+    agent: "all",
+    chartType: "area",
   });
   const [activeFilters, setActiveFilters] = useState({
-    dateFrom: '',
-    dateTo: '',
-    agent: 'all',
-    chartType: 'area'
+    dateFrom: "",
+    dateTo: "",
+    agent: "all",
+    chartType: "area",
   });
   const [showAgentsDialog, setShowAgentsDialog] = useState(false);
   const [showTemplatesDialog, setShowTemplatesDialog] = useState(false);
@@ -77,17 +72,17 @@ export default function Dashboard() {
   const [showExportDialog, setShowExportDialog] = useState(false);
 
   const { data: contacts = [], isLoading: contactsLoading } = useQuery({
-    queryKey: ['contacts'],
-    queryFn: () => api.entities.Contact.list('-created_date', 100),
+    queryKey: ["contacts"],
+    queryFn: () => api.entities.Contact.list("-created_date", 100),
   });
 
   const { data: users = [], isLoading: usersLoading } = useQuery({
-    queryKey: ['users'],
+    queryKey: ["users"],
     queryFn: () => api.entities.User.list(),
   });
 
   const { data: templates = [], isLoading: templatesLoading } = useQuery({
-    queryKey: ['templates'],
+    queryKey: ["templates"],
     queryFn: () => api.entities.Template.list(),
   });
 
@@ -97,70 +92,94 @@ export default function Dashboard() {
 
   const clearFilters = () => {
     setFilters({
-      dateFrom: '',
-      dateTo: '',
-      agent: 'all',
-      chartType: 'area'
+      dateFrom: "",
+      dateTo: "",
+      agent: "all",
+      chartType: "area",
     });
     setActiveFilters({
-      dateFrom: '',
-      dateTo: '',
-      agent: 'all',
-      chartType: 'area'
+      dateFrom: "",
+      dateTo: "",
+      agent: "all",
+      chartType: "area",
     });
   };
 
   // Apply filters to contacts
-  const filteredContacts = contacts.filter(contact => {
+  const filteredContacts = contacts.filter((contact) => {
     if (contact.created_date) {
       const contactDate = new Date(contact.created_date);
-      
+
       if (activeFilters.dateFrom) {
         const fromDate = new Date(activeFilters.dateFrom);
         if (contactDate < fromDate) return false;
       }
-      
+
       if (activeFilters.dateTo) {
         const toDate = new Date(activeFilters.dateTo);
         toDate.setHours(23, 59, 59, 999);
         if (contactDate > toDate) return false;
       }
     }
-    
-    if (activeFilters.agent !== 'all' && contact.assigned_to !== activeFilters.agent) {
+
+    if (
+      activeFilters.agent !== "all" &&
+      contact.assigned_to !== activeFilters.agent
+    ) {
       return false;
     }
     return true;
   });
 
-  const activeUsers = users.filter(u => u.status === 'online' && u.is_active !== false);
+  const activeUsers = users.filter(
+    (u) => u.status === "online" && u.is_active !== false,
+  );
   const recentContacts = filteredContacts.slice(0, 5);
   const isLoading = contactsLoading || usersLoading || templatesLoading;
 
   // Calculate real metrics
   const today = new Date();
-  const thisMonth = filteredContacts.filter(c => {
+  const thisMonth = filteredContacts.filter((c) => {
     if (!c.created_date) return false;
     const date = new Date(c.created_date);
-    return date.getMonth() === today.getMonth() && date.getFullYear() === today.getFullYear();
+    return (
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear()
+    );
   });
 
-  const lastMonth = contacts.filter(c => {
+  const lastMonth = contacts.filter((c) => {
     if (!c.created_date) return false;
     const date = new Date(c.created_date);
-    const lastMonthDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-    return date.getMonth() === lastMonthDate.getMonth() && date.getFullYear() === lastMonthDate.getFullYear();
+    const lastMonthDate = new Date(
+      today.getFullYear(),
+      today.getMonth() - 1,
+      1,
+    );
+    return (
+      date.getMonth() === lastMonthDate.getMonth() &&
+      date.getFullYear() === lastMonthDate.getFullYear()
+    );
   });
 
-  const resolved = filteredContacts.filter(c => c.status === 'resolvido');
-  const conversionRate = filteredContacts.length > 0 ? ((resolved.length / filteredContacts.length) * 100).toFixed(1) : 0;
-  const monthGrowth = lastMonth.length > 0 ? (((thisMonth.length - lastMonth.length) / lastMonth.length) * 100).toFixed(1) : 0;
+  const resolved = filteredContacts.filter((c) => c.status === "resolvido");
+  const conversionRate =
+    filteredContacts.length > 0
+      ? ((resolved.length / filteredContacts.length) * 100).toFixed(1)
+      : 0;
+  const monthGrowth =
+    lastMonth.length > 0
+      ? (
+          ((thisMonth.length - lastMonth.length) / lastMonth.length) *
+          100
+        ).toFixed(1)
+      : 0;
 
   // Generate weekly data
   const getWeeklyData = () => {
-    const weekDays = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
     const data = weekDays.map((name, index) => {
-      const count = filteredContacts.filter(c => {
+      const count = filteredContacts.filter((c) => {
         if (!c.created_date) return false;
         const date = new Date(c.created_date);
         const daysAgo = Math.floor((today - date) / (1000 * 60 * 60 * 24));
@@ -176,37 +195,61 @@ export default function Dashboard() {
 
   // Category distribution
   const categoryData = [
-    { name: 'Novo', value: filteredContacts.filter(c => c.status === 'novo').length, color: '#3b82f6' },
-    { name: 'Em Atendimento', value: filteredContacts.filter(c => c.status === 'em_atendimento').length, color: '#f59e0b' },
-    { name: 'Resolvido', value: filteredContacts.filter(c => c.status === 'resolvido').length, color: '#10b981' },
-    { name: 'Outros', value: filteredContacts.filter(c => !['novo', 'em_atendimento', 'resolvido'].includes(c.status)).length, color: '#64748b' },
-  ].filter(item => item.value > 0);
+    {
+      name: "Novo",
+      value: filteredContacts.filter((c) => c.status === "novo").length,
+      color: "#3b82f6",
+    },
+    {
+      name: "Em Atendimento",
+      value: filteredContacts.filter((c) => c.status === "em_atendimento")
+        .length,
+      color: "#f59e0b",
+    },
+    {
+      name: "Resolvido",
+      value: filteredContacts.filter((c) => c.status === "resolvido").length,
+      color: "#10b981",
+    },
+    {
+      name: "Outros",
+      value: filteredContacts.filter(
+        (c) => !["novo", "em_atendimento", "resolvido"].includes(c.status),
+      ).length,
+      color: "#64748b",
+    },
+  ].filter((item) => item.value > 0);
 
-  const avgResponseTime = '2.5'; // Mock for now
+  const avgResponseTime = "2.5"; // Mock for now
 
   const getInitials = (name) => {
-    if (!name) return '?';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    if (!name) return "?";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   const getStatusColor = (status) => {
     const colors = {
-      novo: 'bg-blue-500',
-      em_atendimento: 'bg-amber-500',
-      aguardando: 'bg-purple-500',
-      resolvido: 'bg-emerald-500',
-      escalado: 'bg-rose-500',
+      novo: "bg-blue-500",
+      em_atendimento: "bg-amber-500",
+      aguardando: "bg-purple-500",
+      resolvido: "bg-emerald-500",
+      escalado: "bg-rose-500",
     };
-    return colors[status] || 'bg-slate-500';
+    return colors[status] || "bg-slate-500";
   };
 
   const getStatusLabel = (status) => {
     const labels = {
-      novo: 'Novo',
-      em_atendimento: 'Em Atendimento',
-      aguardando: 'Aguardando',
-      resolvido: 'Resolvido',
-      escalado: 'Escalado',
+      novo: "Novo",
+      em_atendimento: "Em Atendimento",
+      aguardando: "Aguardando",
+      resolvido: "Resolvido",
+      escalado: "Escalado",
     };
     return labels[status] || status;
   };
@@ -245,7 +288,9 @@ export default function Dashboard() {
                 <Input
                   type="date"
                   value={filters.dateFrom}
-                  onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+                  onChange={(e) =>
+                    setFilters({ ...filters, dateFrom: e.target.value })
+                  }
                   className="bg-background border-border text-foreground [color-scheme:light] dark:[color-scheme:dark]"
                 />
               </div>
@@ -255,14 +300,19 @@ export default function Dashboard() {
                 <Input
                   type="date"
                   value={filters.dateTo}
-                  onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+                  onChange={(e) =>
+                    setFilters({ ...filters, dateTo: e.target.value })
+                  }
                   className="bg-background border-border text-foreground [color-scheme:light] dark:[color-scheme:dark]"
                 />
               </div>
 
               <div className="space-y-2">
                 <Label className="text-foreground text-sm">Agente</Label>
-                <Select value={filters.agent} onValueChange={(v) => setFilters({ ...filters, agent: v })}>
+                <Select
+                  value={filters.agent}
+                  onValueChange={(v) => setFilters({ ...filters, agent: v })}
+                >
                   <SelectTrigger className="bg-background border-border text-foreground">
                     <SelectValue />
                   </SelectTrigger>
@@ -278,8 +328,15 @@ export default function Dashboard() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-foreground text-sm">Tipo de Gráfico</Label>
-                <Select value={filters.chartType} onValueChange={(v) => setFilters({ ...filters, chartType: v })}>
+                <Label className="text-foreground text-sm">
+                  Tipo de Gráfico
+                </Label>
+                <Select
+                  value={filters.chartType}
+                  onValueChange={(v) =>
+                    setFilters({ ...filters, chartType: v })
+                  }
+                >
                   <SelectTrigger className="bg-background border-border text-foreground">
                     <SelectValue />
                   </SelectTrigger>
@@ -320,19 +377,19 @@ export default function Dashboard() {
           value={filteredContacts.length}
           subtitle={`${thisMonth.length} novos este mês`}
           icon={Users}
-          trend={monthGrowth > 0 ? 'up' : 'down'}
+          trend={monthGrowth > 0 ? "up" : "down"}
           trendValue={`${Math.abs(monthGrowth)}% vs mês anterior`}
           color="bg-indigo-500"
           isLoading={isLoading}
-          onClick={() => navigate(createPageUrl('Contacts'))}
+          onClick={() => navigate(createPageUrl("Contacts"))}
         />
         <MetricsCard
           title="Taxa de Conversão"
           value={`${conversionRate}%`}
           subtitle={`${resolved.length} resolvidos`}
           icon={Target}
-          trend={conversionRate >= 50 ? 'up' : 'down'}
-          trendValue={conversionRate >= 50 ? 'Acima da meta' : 'Abaixo da meta'}
+          trend={conversionRate >= 50 ? "up" : "down"}
+          trendValue={conversionRate >= 50 ? "Acima da meta" : "Abaixo da meta"}
           color="bg-emerald-500"
           isLoading={isLoading}
         />
@@ -357,8 +414,15 @@ export default function Dashboard() {
         />
         <MetricsCard
           title="Conversas Hoje"
-          value={filteredContacts.filter(c => c.created_date && new Date(c.created_date).toDateString() === new Date().toDateString()).length}
-          subtitle={`${templates.filter(t => t.is_active !== false).length} templates ativos`}
+          value={
+            filteredContacts.filter(
+              (c) =>
+                c.created_date &&
+                new Date(c.created_date).toDateString() ===
+                  new Date().toDateString(),
+            ).length
+          }
+          subtitle={`${templates.filter((t) => t.is_active !== false).length} templates ativos`}
           icon={MessageSquare}
           color="bg-rose-500"
           isLoading={isLoading}
@@ -367,18 +431,18 @@ export default function Dashboard() {
       </div>
 
       {/* Dialogs */}
-      <AgentsOnlineDialog 
-        open={showAgentsDialog} 
+      <AgentsOnlineDialog
+        open={showAgentsDialog}
         onOpenChange={setShowAgentsDialog}
         users={users}
       />
-      <ActiveTemplatesDialog 
-        open={showTemplatesDialog} 
+      <ActiveTemplatesDialog
+        open={showTemplatesDialog}
         onOpenChange={setShowTemplatesDialog}
         templates={templates}
       />
-      <TodayConversationsDialog 
-        open={showConversationsDialog} 
+      <TodayConversationsDialog
+        open={showConversationsDialog}
         onOpenChange={setShowConversationsDialog}
         contacts={filteredContacts}
       />
@@ -398,64 +462,66 @@ export default function Dashboard() {
         {/* Conversations Chart */}
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-foreground text-lg">Conversas por Dia</CardTitle>
+            <CardTitle className="text-foreground text-lg">
+              Conversas por Dia
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
-              {activeFilters.chartType === 'area' ? (
+              {activeFilters.chartType === "area" ? (
                 <AreaChart data={conversationsData}>
-                <defs>
-                  <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
-                <XAxis dataKey="name" stroke="#64748b" />
-                <YAxis stroke="#64748b" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#1e293b',
-                    border: '1px solid #334155',
-                    borderRadius: '8px',
-                    color: '#fff'
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="value"
-                  stroke="#6366f1"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorValue)"
-                  />
-                  </AreaChart>
-                  ) : activeFilters.chartType === 'bar' ? (
-                  <BarChart data={conversationsData}>
+                  <defs>
+                    <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                   <XAxis dataKey="name" stroke="#64748b" />
                   <YAxis stroke="#64748b" />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#1e293b',
-                      border: '1px solid #334155',
-                      borderRadius: '8px',
-                      color: '#fff'
+                      backgroundColor: "#1e293b",
+                      border: "1px solid #334155",
+                      borderRadius: "8px",
+                      color: "#fff",
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#6366f1"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorValue)"
+                  />
+                </AreaChart>
+              ) : activeFilters.chartType === "bar" ? (
+                <BarChart data={conversationsData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis dataKey="name" stroke="#64748b" />
+                  <YAxis stroke="#64748b" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "#1e293b",
+                      border: "1px solid #334155",
+                      borderRadius: "8px",
+                      color: "#fff",
                     }}
                   />
                   <Bar dataKey="value" fill="#6366f1" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                  ) : (
-                  <AreaChart data={conversationsData}>
+                </BarChart>
+              ) : (
+                <AreaChart data={conversationsData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                   <XAxis dataKey="name" stroke="#64748b" />
                   <YAxis stroke="#64748b" />
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#1e293b',
-                      border: '1px solid #334155',
-                      borderRadius: '8px',
-                      color: '#fff'
+                      backgroundColor: "#1e293b",
+                      border: "1px solid #334155",
+                      borderRadius: "8px",
+                      color: "#fff",
                     }}
                   />
                   <Area
@@ -465,16 +531,18 @@ export default function Dashboard() {
                     strokeWidth={2}
                     fill="none"
                   />
-                  </AreaChart>
-                  )}
-                  </ResponsiveContainer>
-                  </CardContent>
+                </AreaChart>
+              )}
+            </ResponsiveContainer>
+          </CardContent>
         </Card>
 
         {/* Category Distribution */}
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-foreground text-lg">Distribuição por Categoria</CardTitle>
+            <CardTitle className="text-foreground text-lg">
+              Distribuição por Categoria
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-center">
@@ -495,10 +563,10 @@ export default function Dashboard() {
                   </Pie>
                   <Tooltip
                     contentStyle={{
-                      backgroundColor: '#1e293b',
-                      border: '1px solid #334155',
-                      borderRadius: '8px',
-                      color: '#fff'
+                      backgroundColor: "#1e293b",
+                      border: "1px solid #334155",
+                      borderRadius: "8px",
+                      color: "#fff",
                     }}
                   />
                 </PieChart>
@@ -507,8 +575,13 @@ export default function Dashboard() {
             <div className="flex flex-wrap justify-center gap-4 mt-4">
               {categoryData.map((item) => (
                 <div key={item.name} className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
-                  <span className="text-sm text-muted-foreground">{item.name}</span>
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="text-sm text-muted-foreground">
+                    {item.name}
+                  </span>
                 </div>
               ))}
             </div>
@@ -521,7 +594,9 @@ export default function Dashboard() {
         {/* Recent Contacts */}
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-foreground text-lg">Últimos Contatos</CardTitle>
+            <CardTitle className="text-foreground text-lg">
+              Últimos Contatos
+            </CardTitle>
           </CardHeader>
           <CardContent>
             {contactsLoading ? (
@@ -546,7 +621,12 @@ export default function Dashboard() {
                 {recentContacts.map((contact) => (
                   <div
                     key={contact.id}
-                    onClick={() => navigate(createPageUrl('Conversations') + `?contactId=${contact.id}`)}
+                    onClick={() =>
+                      navigate(
+                        createPageUrl("Conversations") +
+                          `?contactId=${contact.id}`,
+                      )
+                    }
                     className="flex items-center gap-3 p-3 rounded-lg bg-accent/50 hover:bg-accent transition-colors cursor-pointer"
                   >
                     <Avatar className="w-10 h-10">
@@ -555,13 +635,17 @@ export default function Dashboard() {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
-                      <p className="text-foreground font-medium truncate">{contact.name}</p>
+                      <p className="text-foreground font-medium truncate">
+                        {contact.name}
+                      </p>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Phone className="w-3 h-3" />
                         {contact.phone}
                       </div>
                     </div>
-                    <Badge className={`${getStatusColor(contact.status)} text-white border-0`}>
+                    <Badge
+                      className={`${getStatusColor(contact.status)} text-white border-0`}
+                    >
                       {getStatusLabel(contact.status)}
                     </Badge>
                   </div>
@@ -574,36 +658,51 @@ export default function Dashboard() {
         {/* Status Distribution */}
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-foreground text-lg">Distribuição por Status</CardTitle>
+            <CardTitle className="text-foreground text-lg">
+              Distribuição por Status
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {['novo', 'em_atendimento', 'aguardando', 'resolvido', 'escalado'].map((status) => {
-                const count = filteredContacts.filter(c => c.status === status).length;
-                const percentage = filteredContacts.length > 0 ? (count / filteredContacts.length) * 100 : 0;
+              {[
+                "novo",
+                "em_atendimento",
+                "aguardando",
+                "resolvido",
+                "escalado",
+              ].map((status) => {
+                const count = filteredContacts.filter(
+                  (c) => c.status === status,
+                ).length;
+                const percentage =
+                  filteredContacts.length > 0
+                    ? (count / filteredContacts.length) * 100
+                    : 0;
                 const labels = {
-                  novo: 'Novo',
-                  em_atendimento: 'Em Atendimento',
-                  aguardando: 'Aguardando',
-                  resolvido: 'Resolvido',
-                  escalado: 'Escalado',
+                  novo: "Novo",
+                  em_atendimento: "Em Atendimento",
+                  aguardando: "Aguardando",
+                  resolvido: "Resolvido",
+                  escalado: "Escalado",
                 };
                 const colors = {
-                  novo: 'bg-blue-500',
-                  em_atendimento: 'bg-amber-500',
-                  aguardando: 'bg-purple-500',
-                  resolvido: 'bg-emerald-500',
-                  escalado: 'bg-rose-500',
+                  novo: "bg-blue-500",
+                  em_atendimento: "bg-amber-500",
+                  aguardando: "bg-purple-500",
+                  resolvido: "bg-emerald-500",
+                  escalado: "bg-rose-500",
                 };
-                
+
                 return (
                   <div key={status} className="space-y-2">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-foreground">{labels[status]}</span>
-                      <span className="text-muted-foreground">{count} ({percentage.toFixed(0)}%)</span>
+                      <span className="text-muted-foreground">
+                        {count} ({percentage.toFixed(0)}%)
+                      </span>
                     </div>
                     <div className="w-full bg-secondary rounded-full h-2">
-                      <div 
+                      <div
                         className={`${colors[status]} h-2 rounded-full transition-all duration-500`}
                         style={{ width: `${percentage}%` }}
                       />

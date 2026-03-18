@@ -1,41 +1,41 @@
-import React, { useState } from 'react';
-import { api } from '@/api/client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { useToast } from '@/components/ui/use-toast';
+import React, { useState } from "react";
+import { api } from "@/api/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { useToast } from "@/components/ui/use-toast";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { User, Mail, Shield, Calendar, Clock, Loader2 } from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+} from "@/components/ui/select";
+import { Mail, Shield, Calendar, Loader2 } from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const statusColors = {
-  online: 'bg-emerald-500',
-  away: 'bg-amber-500',
-  offline: 'bg-slate-500',
+  online: "bg-emerald-500",
+  away: "bg-amber-500",
+  offline: "bg-slate-500",
 };
 
 const statusLabels = {
-  online: 'Online',
-  away: 'Ausente',
-  offline: 'Offline',
+  online: "Online",
+  away: "Ausente",
+  offline: "Offline",
 };
 
 const roleLabels = {
-  admin: 'Administrador',
-  supervisor: 'Supervisor',
-  user: 'Atendente',
+  admin: "Administrador",
+  supervisor: "Supervisor",
+  user: "Atendente",
 };
 
 export default function Profile() {
@@ -43,25 +43,25 @@ export default function Profile() {
   const { toast } = useToast();
 
   const { data: user, isLoading } = useQuery({
-    queryKey: ['currentUser'],
+    queryKey: ["currentUser"],
     queryFn: () => api.auth.me(),
   });
 
   const [formData, setFormData] = useState({
-    status: user?.status || 'online',
+    status: user?.status || "online",
     max_simultaneous: user?.max_simultaneous || 5,
   });
 
   const updateMutation = useMutation({
     mutationFn: (data) => api.auth.updateMe(data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['currentUser'] });
-      toast({ title: 'Perfil atualizado com sucesso!' });
+      queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+      toast({ title: "Perfil atualizado com sucesso!" });
     },
     onError: () => {
       toast({
-        title: 'Erro ao atualizar perfil',
-        variant: 'destructive',
+        title: "Erro ao atualizar perfil",
+        variant: "destructive",
       });
     },
   });
@@ -74,8 +74,13 @@ export default function Profile() {
   };
 
   const getInitials = (name) => {
-    if (!name) return '?';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    if (!name) return "?";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   if (isLoading) {
@@ -91,13 +96,17 @@ export default function Profile() {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">Meu Perfil</h1>
-        <p className="text-muted-foreground">Gerencie suas informações pessoais</p>
+        <p className="text-muted-foreground">
+          Gerencie suas informações pessoais
+        </p>
       </div>
 
       {/* Profile Card */}
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-foreground">Informações Pessoais</CardTitle>
+          <CardTitle className="text-foreground">
+            Informações Pessoais
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Avatar and Basic Info */}
@@ -109,17 +118,21 @@ export default function Profile() {
                   {getInitials(user?.full_name)}
                 </AvatarFallback>
               </Avatar>
-              <span className={`absolute bottom-1 right-1 w-6 h-6 rounded-full border-4 border-card ${statusColors[user?.status || 'offline']}`} />
+              <span
+                className={`absolute bottom-1 right-1 w-6 h-6 rounded-full border-4 border-card ${statusColors[user?.status || "offline"]}`}
+              />
             </div>
             <div className="flex-1 text-center md:text-left">
-              <h2 className="text-2xl font-bold text-foreground">{user?.full_name}</h2>
+              <h2 className="text-2xl font-bold text-foreground">
+                {user?.full_name}
+              </h2>
               <p className="text-muted-foreground">{user?.email}</p>
               <div className="flex flex-wrap gap-2 mt-3 justify-center md:justify-start">
                 <Badge className="bg-primary text-primary-foreground">
                   {roleLabels[user?.role] || user?.role}
                 </Badge>
                 <Badge variant="outline" className="border-border">
-                  {statusLabels[user?.status || 'offline']}
+                  {statusLabels[user?.status || "offline"]}
                 </Badge>
               </div>
             </div>
@@ -135,7 +148,7 @@ export default function Profile() {
                 Email
               </Label>
               <Input
-                value={user?.email || ''}
+                value={user?.email || ""}
                 disabled
                 className="bg-background border-border text-foreground"
               />
@@ -159,13 +172,19 @@ export default function Profile() {
                 Membro desde
               </Label>
               <Input
-                value={user?.created_date ? format(new Date(user.created_date), "dd 'de' MMMM 'de' yyyy", { locale: ptBR }) : 'N/A'}
+                value={
+                  user?.created_date
+                    ? format(
+                        new Date(user.created_date),
+                        "dd 'de' MMMM 'de' yyyy",
+                        { locale: ptBR },
+                      )
+                    : "N/A"
+                }
                 disabled
                 className="bg-background border-border text-foreground"
               />
             </div>
-
-
           </div>
         </CardContent>
       </Card>
@@ -173,7 +192,9 @@ export default function Profile() {
       {/* Settings Card */}
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-foreground">Configurações de Atendimento</CardTitle>
+          <CardTitle className="text-foreground">
+            Configurações de Atendimento
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
@@ -189,7 +210,9 @@ export default function Profile() {
                 {Object.entries(statusLabels).map(([value, label]) => (
                   <SelectItem key={value} value={value}>
                     <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${statusColors[value]}`} />
+                      <span
+                        className={`w-2 h-2 rounded-full ${statusColors[value]}`}
+                      />
                       {label}
                     </div>
                   </SelectItem>
@@ -208,7 +231,12 @@ export default function Profile() {
               min={1}
               max={20}
               value={formData.max_simultaneous}
-              onChange={(e) => setFormData({ ...formData, max_simultaneous: parseInt(e.target.value) || 5 })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  max_simultaneous: parseInt(e.target.value) || 5,
+                })
+              }
               className="bg-background border-border text-foreground"
             />
             <p className="text-xs text-muted-foreground">
@@ -228,7 +256,7 @@ export default function Profile() {
                   Salvando...
                 </>
               ) : (
-                'Salvar Alterações'
+                "Salvar Alterações"
               )}
             </Button>
           </div>

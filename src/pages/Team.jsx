@@ -1,88 +1,77 @@
-import React, { useState } from 'react';
-import { api } from '@/api/client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Label } from '@/components/ui/label';
-import InviteUserDialog from '../components/team/InviteUserDialog';
+import React, { useState } from "react";
+import { api } from "@/api/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Label } from "@/components/ui/label";
+import InviteUserDialog from "../components/team/InviteUserDialog";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from '@/components/ui/dialog';
+} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Switch } from '@/components/ui/switch';
-import { useToast } from '@/components/ui/use-toast';
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/components/ui/use-toast";
 import {
   Search,
   Plus,
   Pencil,
-  Trash2,
   UserCog,
   Circle,
   Shield,
   Users,
-  Loader2
-} from 'lucide-react';
+  Loader2,
+} from "lucide-react";
 
 const statusColors = {
-  online: 'bg-emerald-500',
-  away: 'bg-amber-500',
-  offline: 'bg-slate-500',
+  online: "bg-emerald-500",
+  away: "bg-amber-500",
+  offline: "bg-slate-500",
 };
 
 const statusLabels = {
-  online: 'Online',
-  away: 'Ausente',
-  offline: 'Offline',
+  online: "Online",
+  away: "Ausente",
+  offline: "Offline",
 };
 
 const roleLabels = {
-  admin: 'Administrador',
-  supervisor: 'Supervisor',
-  user: 'Atendente',
+  admin: "Administrador",
+  supervisor: "Supervisor",
+  user: "Atendente",
 };
 
 const roleColors = {
-  admin: 'bg-rose-500',
-  supervisor: 'bg-amber-500',
-  user: 'bg-blue-500',
+  admin: "bg-rose-500",
+  supervisor: "bg-amber-500",
+  user: "bg-blue-500",
 };
 
 export default function Team() {
-  const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState('all');
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [deleteUser, setDeleteUser] = useState(null);
   const [formData, setFormData] = useState({
-    full_name: '',
-    email: '',
-    role: 'user',
-    status: 'offline',
+    full_name: "",
+    email: "",
+    role: "user",
+    status: "offline",
     max_simultaneous: 5,
     is_active: true,
   });
@@ -91,32 +80,32 @@ export default function Team() {
   const { toast } = useToast();
 
   const { data: currentUser } = useQuery({
-    queryKey: ['currentUser'],
+    queryKey: ["currentUser"],
     queryFn: () => api.auth.me(),
   });
 
   const { data: users = [], isLoading } = useQuery({
-    queryKey: ['users'],
+    queryKey: ["users"],
     queryFn: () => api.entities.User.list(),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => api.entities.User.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] });
-      toast({ title: 'Usuário atualizado com sucesso!' });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+      toast({ title: "Usuário atualizado com sucesso!" });
       closeForm();
     },
   });
 
-  const isAdmin = currentUser?.role === 'admin';
-  const isSupervisor = currentUser?.role === 'supervisor';
+  const isAdmin = currentUser?.role === "admin";
+  const isSupervisor = currentUser?.role === "supervisor";
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
       user.full_name?.toLowerCase().includes(search.toLowerCase()) ||
       user.email?.toLowerCase().includes(search.toLowerCase());
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+    const matchesRole = roleFilter === "all" || user.role === roleFilter;
     return matchesSearch && matchesRole;
   });
 
@@ -124,20 +113,20 @@ export default function Team() {
     if (user) {
       setSelectedUser(user);
       setFormData({
-        full_name: user.full_name || '',
-        email: user.email || '',
-        role: user.role || 'user',
-        status: user.status || 'offline',
+        full_name: user.full_name || "",
+        email: user.email || "",
+        role: user.role || "user",
+        status: user.status || "offline",
         max_simultaneous: user.max_simultaneous || 5,
         is_active: user.is_active !== false,
       });
     } else {
       setSelectedUser(null);
       setFormData({
-        full_name: '',
-        email: '',
-        role: 'user',
-        status: 'offline',
+        full_name: "",
+        email: "",
+        role: "user",
+        status: "offline",
         max_simultaneous: 5,
         is_active: true,
       });
@@ -152,47 +141,52 @@ export default function Team() {
 
   const handleSave = () => {
     if (!selectedUser) return;
-    
+
     // Security: Prevent editing own account or other admins (unless you're the main admin)
     if (selectedUser.id === currentUser?.id) {
-      toast({ 
-        title: 'Não é possível editar sua própria conta', 
-        description: 'Use a página de Perfil para editar seus dados.',
-        variant: 'destructive' 
+      toast({
+        title: "Não é possível editar sua própria conta",
+        description: "Use a página de Perfil para editar seus dados.",
+        variant: "destructive",
       });
       return;
     }
-    
+
     // Security: Only admin can edit other users
     if (!isAdmin) {
-      toast({ 
-        title: 'Sem permissão', 
-        description: 'Apenas administradores podem editar usuários.',
-        variant: 'destructive' 
+      toast({
+        title: "Sem permissão",
+        description: "Apenas administradores podem editar usuários.",
+        variant: "destructive",
       });
       return;
     }
-    
+
     // Only update editable fields - NEVER try to update email, full_name, or role for built-in User
     const updateData = {
       status: formData.status,
       max_simultaneous: formData.max_simultaneous,
       is_active: formData.is_active,
     };
-    
+
     updateMutation.mutate({ id: selectedUser.id, data: updateData });
   };
 
   const getInitials = (name) => {
-    if (!name) return '?';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    if (!name) return "?";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   const stats = {
     total: users.length,
-    online: users.filter(u => u.status === 'online').length,
-    admins: users.filter(u => u.role === 'admin').length,
-    supervisors: users.filter(u => u.role === 'supervisor').length,
+    online: users.filter((u) => u.status === "online").length,
+    admins: users.filter((u) => u.role === "admin").length,
+    supervisors: users.filter((u) => u.role === "supervisor").length,
   };
 
   return (
@@ -201,10 +195,12 @@ export default function Team() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Equipe</h1>
-          <p className="text-muted-foreground">Gerencie os agentes do seu time</p>
+          <p className="text-muted-foreground">
+            Gerencie os agentes do seu time
+          </p>
         </div>
         {isAdmin && (
-          <Button 
+          <Button
             className="bg-primary hover:bg-primary/90 gap-2"
             onClick={() => setIsInviteOpen(true)}
           >
@@ -223,7 +219,9 @@ export default function Team() {
                 <Users className="w-5 h-5 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{stats.total}</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {stats.total}
+                </p>
                 <p className="text-xs text-muted-foreground">Total</p>
               </div>
             </div>
@@ -236,7 +234,9 @@ export default function Team() {
                 <Circle className="w-5 h-5 text-emerald-400 fill-emerald-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{stats.online}</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {stats.online}
+                </p>
                 <p className="text-xs text-muted-foreground">Online</p>
               </div>
             </div>
@@ -249,7 +249,9 @@ export default function Team() {
                 <Shield className="w-5 h-5 text-rose-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{stats.admins}</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {stats.admins}
+                </p>
                 <p className="text-xs text-muted-foreground">Admins</p>
               </div>
             </div>
@@ -262,7 +264,9 @@ export default function Team() {
                 <UserCog className="w-5 h-5 text-amber-400" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{stats.supervisors}</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {stats.supervisors}
+                </p>
                 <p className="text-xs text-muted-foreground">Supervisores</p>
               </div>
             </div>
@@ -329,7 +333,7 @@ export default function Team() {
             <Card
               key={user.id}
               className={`bg-card border-border hover:border-primary/50 transition-all ${
-                user.is_active === false ? 'opacity-60' : ''
+                user.is_active === false ? "opacity-60" : ""
               }`}
             >
               <CardContent className="p-6">
@@ -342,11 +346,17 @@ export default function Team() {
                           {getInitials(user.full_name)}
                         </AvatarFallback>
                       </Avatar>
-                      <span className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-card ${statusColors[user.status || 'offline']}`} />
+                      <span
+                        className={`absolute bottom-0 right-0 w-4 h-4 rounded-full border-2 border-card ${statusColors[user.status || "offline"]}`}
+                      />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-foreground">{user.full_name}</h3>
-                      <p className="text-sm text-muted-foreground">{user.email}</p>
+                      <h3 className="font-semibold text-foreground">
+                        {user.full_name}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {user.email}
+                      </p>
                     </div>
                   </div>
                   {isAdmin && user.id !== currentUser?.id && (
@@ -363,24 +373,34 @@ export default function Team() {
 
                 <div className="flex items-center justify-between">
                   <div className="flex gap-2">
-                    <Badge className={`${roleColors[user.role]} text-white border-0`}>
+                    <Badge
+                      className={`${roleColors[user.role]} text-white border-0`}
+                    >
                       {roleLabels[user.role]}
                     </Badge>
                     {user.is_active === false && (
-                      <Badge variant="secondary" className="bg-secondary">Inativo</Badge>
+                      <Badge variant="secondary" className="bg-secondary">
+                        Inativo
+                      </Badge>
                     )}
                   </div>
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Circle className={`w-2 h-2 ${statusColors[user.status || 'offline']} rounded-full`} />
-                    {statusLabels[user.status || 'offline']}
+                    <Circle
+                      className={`w-2 h-2 ${statusColors[user.status || "offline"]} rounded-full`}
+                    />
+                    {statusLabels[user.status || "offline"]}
                   </div>
                 </div>
 
                 {user.max_simultaneous && (
                   <div className="mt-4 pt-4 border-t border-border">
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Atendimentos simultâneos:</span>
-                      <span className="text-foreground font-medium">{user.max_simultaneous}</span>
+                      <span className="text-muted-foreground">
+                        Atendimentos simultâneos:
+                      </span>
+                      <span className="text-foreground font-medium">
+                        {user.max_simultaneous}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -408,7 +428,9 @@ export default function Team() {
               </Avatar>
               <div>
                 <p className="font-medium">{formData.full_name}</p>
-                <p className="text-sm text-muted-foreground">{formData.email}</p>
+                <p className="text-sm text-muted-foreground">
+                  {formData.email}
+                </p>
               </div>
             </div>
 
@@ -423,7 +445,9 @@ export default function Team() {
                 </SelectTrigger>
                 <SelectContent className="bg-popover border-border">
                   {Object.entries(statusLabels).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -436,7 +460,12 @@ export default function Team() {
                 min={1}
                 max={20}
                 value={formData.max_simultaneous}
-                onChange={(e) => setFormData({ ...formData, max_simultaneous: parseInt(e.target.value) || 5 })}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    max_simultaneous: parseInt(e.target.value) || 5,
+                  })
+                }
                 className="bg-background border-border"
               />
             </div>
@@ -444,16 +473,22 @@ export default function Team() {
             <div className="flex items-center justify-between p-4 bg-accent rounded-lg">
               <div>
                 <Label>Usuário Ativo</Label>
-                <p className="text-sm text-muted-foreground">Pode acessar o sistema</p>
+                <p className="text-sm text-muted-foreground">
+                  Pode acessar o sistema
+                </p>
               </div>
               <Switch
                 checked={formData.is_active}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                onCheckedChange={(checked) =>
+                  setFormData({ ...formData, is_active: checked })
+                }
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={closeForm}>Cancelar</Button>
+            <Button variant="outline" onClick={closeForm}>
+              Cancelar
+            </Button>
             <Button
               onClick={handleSave}
               disabled={updateMutation.isPending}
@@ -464,7 +499,9 @@ export default function Team() {
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   Salvando...
                 </>
-              ) : 'Salvar'}
+              ) : (
+                "Salvar"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

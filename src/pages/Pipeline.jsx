@@ -1,27 +1,21 @@
-import React, { useState } from 'react';
-import { api } from '@/api/client';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import React, { useState } from "react";
+import { api } from "@/api/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { useToast } from '@/components/ui/use-toast';
-import {
-  DragDropContext,
-  Droppable,
-  Draggable,
-} from '@hello-pangea/dnd';
+} from "@/components/ui/select";
+import { useToast } from "@/components/ui/use-toast";
+import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import {
   Phone,
   Mail,
@@ -29,19 +23,42 @@ import {
   Clock,
   GripVertical,
   Users,
-  Plus,
-  Filter,
-  X
-} from 'lucide-react';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+  X,
+} from "lucide-react";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 
 const stages = [
-  { id: 'novo', title: 'Novo', color: 'bg-blue-500', borderColor: 'border-blue-500' },
-  { id: 'em_atendimento', title: 'Em Atendimento', color: 'bg-amber-500', borderColor: 'border-amber-500' },
-  { id: 'aguardando', title: 'Aguardando', color: 'bg-purple-500', borderColor: 'border-purple-500' },
-  { id: 'resolvido', title: 'Resolvido', color: 'bg-emerald-500', borderColor: 'border-emerald-500' },
-  { id: 'escalado', title: 'Escalado', color: 'bg-rose-500', borderColor: 'border-rose-500' },
+  {
+    id: "novo",
+    title: "Novo",
+    color: "bg-blue-500",
+    borderColor: "border-blue-500",
+  },
+  {
+    id: "em_atendimento",
+    title: "Em Atendimento",
+    color: "bg-amber-500",
+    borderColor: "border-amber-500",
+  },
+  {
+    id: "aguardando",
+    title: "Aguardando",
+    color: "bg-purple-500",
+    borderColor: "border-purple-500",
+  },
+  {
+    id: "resolvido",
+    title: "Resolvido",
+    color: "bg-emerald-500",
+    borderColor: "border-emerald-500",
+  },
+  {
+    id: "escalado",
+    title: "Escalado",
+    color: "bg-rose-500",
+    borderColor: "border-rose-500",
+  },
 ];
 
 export default function Pipeline() {
@@ -49,28 +66,28 @@ export default function Pipeline() {
   const { toast } = useToast();
 
   const [filters, setFilters] = useState({
-    name: '',
-    phone: '',
-    status: 'all',
-    assignedTo: 'all',
-    stage: 'all',
-    sortBy: 'created_date',
+    name: "",
+    phone: "",
+    status: "all",
+    assignedTo: "all",
+    stage: "all",
+    sortBy: "created_date",
   });
 
   const { data: contacts = [], isLoading } = useQuery({
-    queryKey: ['contacts'],
-    queryFn: () => api.entities.Contact.list('-created_date'),
+    queryKey: ["contacts"],
+    queryFn: () => api.entities.Contact.list("-created_date"),
   });
 
   const { data: users = [] } = useQuery({
-    queryKey: ['users'],
+    queryKey: ["users"],
     queryFn: () => api.entities.User.list(),
   });
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => api.entities.Contact.update(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['contacts'] });
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
     },
   });
 
@@ -79,39 +96,39 @@ export default function Pipeline() {
 
     // Filter by name
     if (filters.name) {
-      filtered = filtered.filter(c => 
-        c.name?.toLowerCase().includes(filters.name.toLowerCase())
+      filtered = filtered.filter((c) =>
+        c.name?.toLowerCase().includes(filters.name.toLowerCase()),
       );
     }
 
     // Filter by phone
     if (filters.phone) {
-      filtered = filtered.filter(c => 
-        c.phone?.includes(filters.phone)
-      );
+      filtered = filtered.filter((c) => c.phone?.includes(filters.phone));
     }
 
     // Filter by status
-    if (filters.status !== 'all') {
-      filtered = filtered.filter(c => c.status === filters.status);
+    if (filters.status !== "all") {
+      filtered = filtered.filter((c) => c.status === filters.status);
     }
 
     // Filter by assigned agent
-    if (filters.assignedTo !== 'all') {
-      filtered = filtered.filter(c => c.assigned_to === filters.assignedTo);
+    if (filters.assignedTo !== "all") {
+      filtered = filtered.filter((c) => c.assigned_to === filters.assignedTo);
     }
 
     // Filter by stage (same as status)
-    if (filters.stage !== 'all') {
-      filtered = filtered.filter(c => c.status === filters.stage);
+    if (filters.stage !== "all") {
+      filtered = filtered.filter((c) => c.status === filters.stage);
     }
 
     // Sort
-    if (filters.sortBy === 'created_date') {
-      filtered.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
-    } else if (filters.sortBy === 'name') {
-      filtered.sort((a, b) => a.name?.localeCompare(b.name || '') || 0);
-    } else if (filters.sortBy === 'last_contact') {
+    if (filters.sortBy === "created_date") {
+      filtered.sort(
+        (a, b) => new Date(b.created_date) - new Date(a.created_date),
+      );
+    } else if (filters.sortBy === "name") {
+      filtered.sort((a, b) => a.name?.localeCompare(b.name || "") || 0);
+    } else if (filters.sortBy === "last_contact") {
       filtered.sort((a, b) => {
         if (!a.last_contact) return 1;
         if (!b.last_contact) return -1;
@@ -129,39 +146,49 @@ export default function Pipeline() {
 
   const clearFilters = () => {
     setFilters({
-      name: '',
-      phone: '',
-      status: 'all',
-      assignedTo: 'all',
-      stage: 'all',
-      sortBy: 'created_date',
+      name: "",
+      phone: "",
+      status: "all",
+      assignedTo: "all",
+      stage: "all",
+      sortBy: "created_date",
     });
   };
 
-  const hasActiveFilters = filters.name || filters.phone || filters.status !== 'all' || 
-    filters.assignedTo !== 'all' || filters.stage !== 'all' || filters.sortBy !== 'created_date';
+  const hasActiveFilters =
+    filters.name ||
+    filters.phone ||
+    filters.status !== "all" ||
+    filters.assignedTo !== "all" ||
+    filters.stage !== "all" ||
+    filters.sortBy !== "created_date";
 
   const handleDragEnd = (result) => {
     if (!result.destination) return;
-    
+
     const { draggableId, destination } = result;
     const newStatus = destination.droppableId;
-    
-    const contact = contacts.find(c => c.id === draggableId);
+
+    const contact = contacts.find((c) => c.id === draggableId);
     if (contact && contact.status !== newStatus) {
       updateMutation.mutate({
         id: draggableId,
-        data: { status: newStatus }
+        data: { status: newStatus },
       });
-      
-      const stageInfo = stages.find(s => s.id === newStatus);
+
+      const stageInfo = stages.find((s) => s.id === newStatus);
       toast({ title: `${contact.name} movido para ${stageInfo?.title}` });
     }
   };
 
   const getInitials = (name) => {
-    if (!name) return '?';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    if (!name) return "?";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   if (isLoading) {
@@ -193,12 +220,16 @@ export default function Pipeline() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Pipeline</h1>
-          <p className="text-muted-foreground">Acompanhe o funil de atendimento</p>
+          <p className="text-muted-foreground">
+            Acompanhe o funil de atendimento
+          </p>
         </div>
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-2">
             <Users className="w-4 h-4" />
-            <span>{getFilteredContacts().length} de {contacts.length} contatos</span>
+            <span>
+              {getFilteredContacts().length} de {contacts.length} contatos
+            </span>
           </div>
         </div>
       </div>
@@ -209,11 +240,15 @@ export default function Pipeline() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label className="text-foreground text-sm">Nome do Cliente</Label>
+                <Label className="text-foreground text-sm">
+                  Nome do Cliente
+                </Label>
                 <Input
                   placeholder="Buscar por nome..."
                   value={filters.name}
-                  onChange={(e) => setFilters({ ...filters, name: e.target.value })}
+                  onChange={(e) =>
+                    setFilters({ ...filters, name: e.target.value })
+                  }
                   className="bg-background border-border text-foreground"
                 />
               </div>
@@ -223,23 +258,30 @@ export default function Pipeline() {
                 <Input
                   placeholder="Buscar por telefone..."
                   value={filters.phone}
-                  onChange={(e) => setFilters({ ...filters, phone: e.target.value })}
+                  onChange={(e) =>
+                    setFilters({ ...filters, phone: e.target.value })
+                  }
                   className="bg-background border-border text-foreground"
                 />
               </div>
 
               <div className="space-y-2">
                 <Label className="text-foreground text-sm">Status</Label>
-                <Select value={filters.status} onValueChange={(v) => setFilters({ ...filters, status: v })}>
+                <Select
+                  value={filters.status}
+                  onValueChange={(v) => setFilters({ ...filters, status: v })}
+                >
                   <SelectTrigger className="bg-background border-border text-foreground">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-popover border-border">
                     <SelectItem value="all">Todos</SelectItem>
-                    {contacts.some(c => c.status) && (
+                    {contacts.some((c) => c.status) && (
                       <>
                         <SelectItem value="novo">Novo</SelectItem>
-                        <SelectItem value="em_atendimento">Em Atendimento</SelectItem>
+                        <SelectItem value="em_atendimento">
+                          Em Atendimento
+                        </SelectItem>
                         <SelectItem value="aguardando">Aguardando</SelectItem>
                         <SelectItem value="resolvido">Resolvido</SelectItem>
                         <SelectItem value="escalado">Escalado</SelectItem>
@@ -251,7 +293,12 @@ export default function Pipeline() {
 
               <div className="space-y-2">
                 <Label className="text-foreground text-sm">Atendente</Label>
-                <Select value={filters.assignedTo} onValueChange={(v) => setFilters({ ...filters, assignedTo: v })}>
+                <Select
+                  value={filters.assignedTo}
+                  onValueChange={(v) =>
+                    setFilters({ ...filters, assignedTo: v })
+                  }
+                >
                   <SelectTrigger className="bg-background border-border text-foreground">
                     <SelectValue />
                   </SelectTrigger>
@@ -268,7 +315,10 @@ export default function Pipeline() {
 
               <div className="space-y-2">
                 <Label className="text-foreground text-sm">Etapa</Label>
-                <Select value={filters.stage} onValueChange={(v) => setFilters({ ...filters, stage: v })}>
+                <Select
+                  value={filters.stage}
+                  onValueChange={(v) => setFilters({ ...filters, stage: v })}
+                >
                   <SelectTrigger className="bg-background border-border text-foreground">
                     <SelectValue />
                   </SelectTrigger>
@@ -285,12 +335,17 @@ export default function Pipeline() {
 
               <div className="space-y-2">
                 <Label className="text-foreground text-sm">Ordenar por</Label>
-                <Select value={filters.sortBy} onValueChange={(v) => setFilters({ ...filters, sortBy: v })}>
+                <Select
+                  value={filters.sortBy}
+                  onValueChange={(v) => setFilters({ ...filters, sortBy: v })}
+                >
                   <SelectTrigger className="bg-background border-border text-foreground">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="bg-popover border-border">
-                    <SelectItem value="created_date">Data de Criação</SelectItem>
+                    <SelectItem value="created_date">
+                      Data de Criação
+                    </SelectItem>
                     <SelectItem value="name">Nome</SelectItem>
                     <SelectItem value="last_contact">Último Contato</SelectItem>
                   </SelectContent>
@@ -320,16 +375,23 @@ export default function Pipeline() {
         <div className="flex gap-4 overflow-x-auto pb-4 min-h-[calc(100vh-14rem)]">
           {stages.map((stage) => {
             const stageContacts = getContactsByStatus(stage.id);
-            
+
             return (
               <div key={stage.id} className="flex-shrink-0 w-72">
                 {/* Column Header */}
-                <div className={`flex items-center justify-between p-3 rounded-lg bg-card border-l-4 ${stage.borderColor} mb-4`}>
+                <div
+                  className={`flex items-center justify-between p-3 rounded-lg bg-card border-l-4 ${stage.borderColor} mb-4`}
+                >
                   <div className="flex items-center gap-2">
                     <span className={`w-3 h-3 rounded-full ${stage.color}`} />
-                    <h3 className="font-semibold text-foreground">{stage.title}</h3>
+                    <h3 className="font-semibold text-foreground">
+                      {stage.title}
+                    </h3>
                   </div>
-                  <Badge variant="secondary" className="bg-secondary text-secondary-foreground">
+                  <Badge
+                    variant="secondary"
+                    className="bg-secondary text-secondary-foreground"
+                  >
                     {stageContacts.length}
                   </Badge>
                 </div>
@@ -341,15 +403,21 @@ export default function Pipeline() {
                       ref={provided.innerRef}
                       {...provided.droppableProps}
                       className={`space-y-3 min-h-[200px] p-2 rounded-lg transition-colors ${
-                        snapshot.isDraggingOver ? 'bg-accent/50' : ''
+                        snapshot.isDraggingOver ? "bg-accent/50" : ""
                       }`}
                     >
                       {stageContacts.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-8 text-center">
-                          <div className={`w-12 h-12 rounded-full ${stage.color} bg-opacity-20 flex items-center justify-center mb-3`}>
-                            <Users className={`w-6 h-6 ${stage.color.replace('bg-', 'text-')}`} />
+                          <div
+                            className={`w-12 h-12 rounded-full ${stage.color} bg-opacity-20 flex items-center justify-center mb-3`}
+                          >
+                            <Users
+                              className={`w-6 h-6 ${stage.color.replace("bg-", "text-")}`}
+                            />
                           </div>
-                          <p className="text-muted-foreground text-sm">Nenhum contato</p>
+                          <p className="text-muted-foreground text-sm">
+                            Nenhum contato
+                          </p>
                         </div>
                       ) : (
                         stageContacts.map((contact, index) => (
@@ -363,7 +431,9 @@ export default function Pipeline() {
                                 ref={provided.innerRef}
                                 {...provided.draggableProps}
                                 className={`bg-card border-border hover:border-primary/50 transition-all cursor-pointer ${
-                                  snapshot.isDragging ? 'shadow-xl shadow-primary/20 border-primary' : ''
+                                  snapshot.isDragging
+                                    ? "shadow-xl shadow-primary/20 border-primary"
+                                    : ""
                                 }`}
                               >
                                 <CardContent className="p-4">
@@ -395,13 +465,17 @@ export default function Pipeline() {
                                       {contact.company && (
                                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                           <Building2 className="w-3 h-3" />
-                                          <span className="truncate">{contact.company}</span>
+                                          <span className="truncate">
+                                            {contact.company}
+                                          </span>
                                         </div>
                                       )}
                                       {contact.email && (
                                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                           <Mail className="w-3 h-3" />
-                                          <span className="truncate">{contact.email}</span>
+                                          <span className="truncate">
+                                            {contact.email}
+                                          </span>
                                         </div>
                                       )}
                                     </div>
@@ -419,7 +493,10 @@ export default function Pipeline() {
                                         </Badge>
                                       ))}
                                       {contact.tags.length > 2 && (
-                                        <Badge variant="secondary" className="bg-secondary text-secondary-foreground text-xs">
+                                        <Badge
+                                          variant="secondary"
+                                          className="bg-secondary text-secondary-foreground text-xs"
+                                        >
                                           +{contact.tags.length - 2}
                                         </Badge>
                                       )}
@@ -430,8 +507,12 @@ export default function Pipeline() {
                                     <Clock className="w-3 h-3" />
                                     <span>
                                       {contact.created_date
-                                        ? format(new Date(contact.created_date), "dd/MM/yyyy", { locale: ptBR })
-                                        : 'Sem data'}
+                                        ? format(
+                                            new Date(contact.created_date),
+                                            "dd/MM/yyyy",
+                                            { locale: ptBR },
+                                          )
+                                        : "Sem data"}
                                     </span>
                                   </div>
                                 </CardContent>

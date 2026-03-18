@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { api } from '@/api/client';
-import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton';
+import React, { useState, useEffect, useMemo } from "react";
+import { api } from "@/api/client";
+import { useQuery } from "@tanstack/react-query";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Search,
   Phone,
@@ -16,26 +16,17 @@ import {
   Send,
   Paperclip,
   Smile,
-  MoreVertical,
   MessageSquare,
   Circle,
   CheckCheck,
-  Clock,
   Tag,
   Star,
   MailOpen,
   Trash2,
-  Plus
-} from 'lucide-react';
-import { format, isToday, isYesterday } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import ConversationFilterBar from '@/components/conversations/ConversationFilterBar';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from "lucide-react";
+import { format, isToday, isYesterday } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import ConversationFilterBar from "@/components/conversations/ConversationFilterBar";
 import {
   Tooltip,
   TooltipContent,
@@ -45,18 +36,39 @@ import {
 
 // Mock messages for demo
 const mockMessages = [
-  { id: 1, content: 'Olá! Preciso de ajuda com meu pedido.', fromUser: true, time: '09:30' },
-  { id: 2, content: 'Olá! Claro, posso ajudar. Qual é o número do seu pedido?', fromUser: false, time: '09:31' },
-  { id: 3, content: 'É o pedido #12345', fromUser: true, time: '09:32' },
-  { id: 4, content: 'Encontrei seu pedido! Ele está em processamento e deve ser enviado amanhã. Posso ajudar com mais alguma coisa?', fromUser: false, time: '09:33' },
-  { id: 5, content: 'Perfeito! Obrigado pela ajuda rápida!', fromUser: true, time: '09:35' },
+  {
+    id: 1,
+    content: "Olá! Preciso de ajuda com meu pedido.",
+    fromUser: true,
+    time: "09:30",
+  },
+  {
+    id: 2,
+    content: "Olá! Claro, posso ajudar. Qual é o número do seu pedido?",
+    fromUser: false,
+    time: "09:31",
+  },
+  { id: 3, content: "É o pedido #12345", fromUser: true, time: "09:32" },
+  {
+    id: 4,
+    content:
+      "Encontrei seu pedido! Ele está em processamento e deve ser enviado amanhã. Posso ajudar com mais alguma coisa?",
+    fromUser: false,
+    time: "09:33",
+  },
+  {
+    id: 5,
+    content: "Perfeito! Obrigado pela ajuda rápida!",
+    fromUser: true,
+    time: "09:35",
+  },
 ];
 
 export default function Conversations() {
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
   const [selectedContact, setSelectedContact] = useState(null);
-  const [message, setMessage] = useState('');
-  const [activeFilter, setActiveFilter] = useState('all');
+  const [message, setMessage] = useState("");
+  const [activeFilter, setActiveFilter] = useState("all");
   const [starredContacts, setStarredContacts] = useState({});
   const [readContacts, setReadContacts] = useState({}); // New state for read contacts
   const [deletedContacts, setDeletedContacts] = useState({}); // New state for deleted contacts
@@ -65,16 +77,16 @@ export default function Conversations() {
   const [contactUnreadData, setContactUnreadData] = useState({});
 
   const { data: contacts = [], isLoading } = useQuery({
-    queryKey: ['contacts'],
-    queryFn: () => api.entities.Contact.list('-created_date'),
+    queryKey: ["contacts"],
+    queryFn: () => api.entities.Contact.list("-created_date"),
   });
 
   useEffect(() => {
     if (contacts.length > 0) {
-      setContactUnreadData(prevData => {
+      setContactUnreadData((prevData) => {
         const newData = { ...prevData };
         let madeChanges = false;
-        contacts.forEach(contact => {
+        contacts.forEach((contact) => {
           if (!newData[contact.id]) {
             newData[contact.id] = {
               isUnreadInitially: Math.random() > 0.7,
@@ -90,24 +102,27 @@ export default function Conversations() {
 
   // Simulate unread count and starred status
   const processedContacts = contacts
-    .filter(contact => !deletedContacts[contact.id]) // Filter out deleted contacts
-    .map(contact => {
-      const unreadData = contactUnreadData[contact.id] || { isUnreadInitially: false, unreadCount: 0 };
+    .filter((contact) => !deletedContacts[contact.id]) // Filter out deleted contacts
+    .map((contact) => {
+      const unreadData = contactUnreadData[contact.id] || {
+        isUnreadInitially: false,
+        unreadCount: 0,
+      };
       return {
         ...contact,
         isUnread: !readContacts[contact.id] && unreadData.isUnreadInitially,
         unreadCount: unreadData.unreadCount,
         isStarred: !!starredContacts[contact.id],
-      }
+      };
     });
 
   // Check for contactId in URL params and auto-select contact
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const contactId = urlParams.get('contactId');
-    
+    const contactId = urlParams.get("contactId");
+
     if (contactId && processedContacts.length > 0) {
-      const contact = processedContacts.find(c => c.id === contactId);
+      const contact = processedContacts.find((c) => c.id === contactId);
       if (contact) {
         setSelectedContact(contact);
       }
@@ -119,73 +134,83 @@ export default function Conversations() {
 
     // Apply search filter
     if (search) {
-      contactsToFilter = contactsToFilter.filter((contact) =>
-        contact.name?.toLowerCase().includes(search.toLowerCase()) ||
-        contact.phone?.includes(search)
+      contactsToFilter = contactsToFilter.filter(
+        (contact) =>
+          contact.name?.toLowerCase().includes(search.toLowerCase()) ||
+          contact.phone?.includes(search),
       );
     }
 
     // Apply active filter
     switch (activeFilter) {
-      case 'unread':
-        contactsToFilter = contactsToFilter.filter(contact => contact.isUnread);
+      case "unread":
+        contactsToFilter = contactsToFilter.filter(
+          (contact) => contact.isUnread,
+        );
         break;
-      case 'starred':
-        contactsToFilter = contactsToFilter.filter(contact => contact.isStarred);
+      case "starred":
+        contactsToFilter = contactsToFilter.filter(
+          (contact) => contact.isStarred,
+        );
         break;
-      case 'recents':
+      case "recents":
         // Contacts are already sorted by -created_date from API. No additional sorting needed here.
         // If the API call changes, this would need to be re-evaluated.
         break;
-      case 'all':
+      case "all":
       default:
         // No specific filter, just search applied
         break;
     }
-    
+
     return contactsToFilter;
   }, [processedContacts, search, activeFilter]);
 
   const getInitials = (name) => {
-    if (!name) return '?';
-    return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    if (!name) return "?";
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   const formatDate = (date) => {
-    if (!date) return '';
+    if (!date) return "";
     const d = new Date(date);
-    if (isToday(d)) return 'Hoje';
-    if (isYesterday(d)) return 'Ontem';
-    return format(d, 'dd/MM', { locale: ptBR });
+    if (isToday(d)) return "Hoje";
+    if (isYesterday(d)) return "Ontem";
+    return format(d, "dd/MM", { locale: ptBR });
   };
 
   const getStatusColor = (status) => {
     const colors = {
-      novo: 'bg-blue-500',
-      em_atendimento: 'bg-amber-500',
-      aguardando: 'bg-purple-500',
-      resolvido: 'bg-emerald-500',
-      escalado: 'bg-rose-500',
+      novo: "bg-blue-500",
+      em_atendimento: "bg-amber-500",
+      aguardando: "bg-purple-500",
+      resolvido: "bg-emerald-500",
+      escalado: "bg-rose-500",
     };
-    return colors[status] || 'bg-slate-500';
+    return colors[status] || "bg-slate-500";
   };
 
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!message.trim()) return;
     // In real implementation, this would send the message
-    setMessage('');
+    setMessage("");
   };
 
   const handleToggleStar = (contactId) => {
-    setStarredContacts(prevStarred => ({
+    setStarredContacts((prevStarred) => ({
       ...prevStarred,
       [contactId]: !prevStarred[contactId],
     }));
   };
 
   const handleMarkAsRead = (contactId) => {
-    setReadContacts(prevRead => ({
+    setReadContacts((prevRead) => ({
       ...prevRead,
       [contactId]: true,
     }));
@@ -197,7 +222,7 @@ export default function Conversations() {
   const handleDeleteConversation = (contactId) => {
     // In a real app, this would call an API to delete the conversation.
     // For simulation, we add it to a list of deleted contacts.
-    setDeletedContacts(prevDeleted => ({
+    setDeletedContacts((prevDeleted) => ({
       ...prevDeleted,
       [contactId]: true,
     }));
@@ -208,11 +233,14 @@ export default function Conversations() {
   };
 
   return (
-    <div className="flex gap-4" style={{ height: 'calc(100vh - 120px)' }}>
+    <div className="flex gap-4" style={{ height: "calc(100vh - 120px)" }}>
       {/* Contacts List */}
       <Card className="bg-card border-border w-96 flex-shrink-0 flex flex-col overflow-hidden">
         {/* Filter bar */}
-        <ConversationFilterBar activeFilter={activeFilter} onFilterChange={setActiveFilter} />
+        <ConversationFilterBar
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
+        />
 
         <div className="p-4 border-b border-border flex-shrink-0">
           <div className="relative">
@@ -225,7 +253,7 @@ export default function Conversations() {
             />
           </div>
         </div>
-        
+
         <ScrollArea className="flex-1">
           {isLoading ? (
             <div className="p-4 space-y-3">
@@ -242,7 +270,9 @@ export default function Conversations() {
           ) : filteredContacts.length === 0 ? (
             <div className="p-8 text-center">
               <MessageSquare className="w-10 h-10 mx-auto mb-2 text-muted-foreground opacity-50" />
-              <p className="text-muted-foreground text-sm">Nenhuma conversa encontrada</p>
+              <p className="text-muted-foreground text-sm">
+                Nenhuma conversa encontrada
+              </p>
             </div>
           ) : (
             <div className="p-2">
@@ -252,8 +282,8 @@ export default function Conversations() {
                   onClick={() => setSelectedContact(contact)}
                   className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${
                     selectedContact?.id === contact.id
-                      ? 'bg-primary/20 border border-primary/30'
-                      : 'hover:bg-accent'
+                      ? "bg-primary/20 border border-primary/30"
+                      : "hover:bg-accent"
                   }`}
                 >
                   <div className="relative">
@@ -262,25 +292,34 @@ export default function Conversations() {
                         {getInitials(contact.name)}
                       </AvatarFallback>
                     </Avatar>
-                    <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-card ${getStatusColor(contact.status)}`} />
+                    <span
+                      className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-card ${getStatusColor(contact.status)}`}
+                    />
                   </div>
-                            <div className="flex-1 flex flex-col min-w-0">
-                              {/* Top row: Name (left) and Date (right) */}
-                              <div className="flex justify-between items-start mb-1">
-                                <h3 className="font-medium text-foreground truncate flex-1">{contact.name}</h3>
-                                <span className="text-xs text-muted-foreground flex-shrink-0">{formatDate(contact.created_date)}</span>
-                              </div>
-                  
-                              {/* Bottom row: Last Message (left) and Notification Badge (right) */}
-                              <div className="flex justify-between items-center">
-                                <p className="text-sm text-muted-foreground truncate flex-1">Última mensagem do contato...</p>
-                                {contact.isUnread && (
-                                  <span className="w-5 h-5 bg-primary rounded-full flex items-center justify-center text-xs text-primary-foreground font-bold flex-shrink-0 ml-2">
-                                    {contact.unreadCount}
-                                  </span>
-                                )}
-                              </div>
-                            </div>                  {contact.isStarred && (
+                  <div className="flex-1 flex flex-col min-w-0">
+                    {/* Top row: Name (left) and Date (right) */}
+                    <div className="flex justify-between items-start mb-1">
+                      <h3 className="font-medium text-foreground truncate flex-1">
+                        {contact.name}
+                      </h3>
+                      <span className="text-xs text-muted-foreground flex-shrink-0">
+                        {formatDate(contact.created_date)}
+                      </span>
+                    </div>
+
+                    {/* Bottom row: Last Message (left) and Notification Badge (right) */}
+                    <div className="flex justify-between items-center">
+                      <p className="text-sm text-muted-foreground truncate flex-1">
+                        Última mensagem do contato...
+                      </p>
+                      {contact.isUnread && (
+                        <span className="w-5 h-5 bg-primary rounded-full flex items-center justify-center text-xs text-primary-foreground font-bold flex-shrink-0 ml-2">
+                          {contact.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                  </div>{" "}
+                  {contact.isStarred && (
                     <Star className="w-4 h-4 text-amber-400" />
                   )}
                 </div>
@@ -303,9 +342,13 @@ export default function Conversations() {
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <h2 className="font-semibold text-foreground">{selectedContact.name}</h2>
+                  <h2 className="font-semibold text-foreground">
+                    {selectedContact.name}
+                  </h2>
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Circle className={`w-2 h-2 ${getStatusColor(selectedContact.status)}`} />
+                    <Circle
+                      className={`w-2 h-2 ${getStatusColor(selectedContact.status)}`}
+                    />
                     <span>Online</span>
                   </div>
                 </div>
@@ -317,13 +360,15 @@ export default function Conversations() {
                       variant="ghost"
                       size="icon"
                       onClick={() => handleToggleStar(selectedContact.id)}
-                      className={`text-muted-foreground hover:text-foreground ${selectedContact.isStarred ? 'text-amber-400' : ''}`}
+                      className={`text-muted-foreground hover:text-foreground ${selectedContact.isStarred ? "text-amber-400" : ""}`}
                     >
                       <Star className="w-5 h-5" />
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>{selectedContact.isStarred ? 'Desfavoritar' : 'Favoritar'}</p>
+                    <p>
+                      {selectedContact.isStarred ? "Desfavoritar" : "Favoritar"}
+                    </p>
                   </TooltipContent>
                 </Tooltip>
                 <Tooltip>
@@ -346,7 +391,9 @@ export default function Conversations() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleDeleteConversation(selectedContact.id)}
+                      onClick={() =>
+                        handleDeleteConversation(selectedContact.id)
+                      }
                       className="text-rose-500 hover:text-rose-600"
                     >
                       <Trash2 className="w-5 h-5" />
@@ -367,21 +414,23 @@ export default function Conversations() {
                     Hoje
                   </span>
                 </div>
-                
+
                 {mockMessages.map((msg) => (
                   <div
                     key={msg.id}
-                    className={`flex ${msg.fromUser ? 'justify-start' : 'justify-end'}`}
+                    className={`flex ${msg.fromUser ? "justify-start" : "justify-end"}`}
                   >
                     <div
                       className={`max-w-[70%] p-3 rounded-2xl ${
                         msg.fromUser
-                          ? 'bg-accent text-foreground rounded-bl-none'
-                          : 'bg-primary text-primary-foreground rounded-br-none'
+                          ? "bg-accent text-foreground rounded-bl-none"
+                          : "bg-primary text-primary-foreground rounded-br-none"
                       }`}
                     >
                       <p className="text-sm">{msg.content}</p>
-                      <div className={`flex items-center justify-end gap-1 mt-1 ${msg.fromUser ? 'text-muted-foreground' : 'text-primary-foreground/70'}`}>
+                      <div
+                        className={`flex items-center justify-end gap-1 mt-1 ${msg.fromUser ? "text-muted-foreground" : "text-primary-foreground/70"}`}
+                      >
                         <span className="text-xs">{msg.time}</span>
                         {!msg.fromUser && <CheckCheck className="w-3 h-3" />}
                       </div>
@@ -392,9 +441,17 @@ export default function Conversations() {
             </ScrollArea>
 
             {/* Input Area */}
-            <form onSubmit={handleSendMessage} className="p-4 border-t border-border">
+            <form
+              onSubmit={handleSendMessage}
+              className="p-4 border-t border-border"
+            >
               <div className="flex items-center gap-2">
-                <Button type="button" variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground hover:text-foreground"
+                >
                   <Paperclip className="w-5 h-5" />
                 </Button>
                 <Input
@@ -403,10 +460,19 @@ export default function Conversations() {
                   placeholder="Digite sua mensagem..."
                   className="flex-1 bg-background border-border"
                 />
-                <Button type="button" variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground hover:text-foreground"
+                >
                   <Smile className="w-5 h-5" />
                 </Button>
-                <Button type="submit" size="icon" className="bg-primary hover:bg-primary/90">
+                <Button
+                  type="submit"
+                  size="icon"
+                  className="bg-primary hover:bg-primary/90"
+                >
                   <Send className="w-4 h-4" />
                 </Button>
               </div>
@@ -416,8 +482,12 @@ export default function Conversations() {
           <Card className="bg-card border-border flex-1 flex items-center justify-center">
             <div className="text-center">
               <MessageSquare className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
-              <h2 className="text-xl font-semibold text-foreground mb-2">Selecione uma conversa</h2>
-              <p className="text-muted-foreground">Escolha um contato para iniciar o atendimento</p>
+              <h2 className="text-xl font-semibold text-foreground mb-2">
+                Selecione uma conversa
+              </h2>
+              <p className="text-muted-foreground">
+                Escolha um contato para iniciar o atendimento
+              </p>
             </div>
           </Card>
         )}
@@ -433,29 +503,39 @@ export default function Conversations() {
                   {getInitials(selectedContact.name)}
                 </AvatarFallback>
               </Avatar>
-              <h3 className="font-semibold text-foreground text-lg">{selectedContact.name}</h3>
-              <Badge className={`${getStatusColor(selectedContact.status)} text-white border-0 mt-2`}>
-                {selectedContact.status?.replace('_', ' ')}
+              <h3 className="font-semibold text-foreground text-lg">
+                {selectedContact.name}
+              </h3>
+              <Badge
+                className={`${getStatusColor(selectedContact.status)} text-white border-0 mt-2`}
+              >
+                {selectedContact.status?.replace("_", " ")}
               </Badge>
             </div>
 
             <div className="space-y-4">
               <div className="flex items-center gap-3 p-3 bg-accent rounded-lg">
                 <Phone className="w-4 h-4 text-muted-foreground" />
-                <span className="text-sm text-foreground">{selectedContact.phone}</span>
+                <span className="text-sm text-foreground">
+                  {selectedContact.phone}
+                </span>
               </div>
-              
+
               {selectedContact.email && (
                 <div className="flex items-center gap-3 p-3 bg-accent rounded-lg">
                   <Mail className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-foreground truncate">{selectedContact.email}</span>
+                  <span className="text-sm text-foreground truncate">
+                    {selectedContact.email}
+                  </span>
                 </div>
               )}
-              
+
               {selectedContact.company && (
                 <div className="flex items-center gap-3 p-3 bg-accent rounded-lg">
                   <Building2 className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm text-foreground">{selectedContact.company}</span>
+                  <span className="text-sm text-foreground">
+                    {selectedContact.company}
+                  </span>
                 </div>
               )}
 
@@ -467,7 +547,11 @@ export default function Conversations() {
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {selectedContact.tags.map((tag) => (
-                      <Badge key={tag} variant="secondary" className="bg-secondary text-secondary-foreground text-xs">
+                      <Badge
+                        key={tag}
+                        variant="secondary"
+                        className="bg-secondary text-secondary-foreground text-xs"
+                      >
                         {tag}
                       </Badge>
                     ))}
@@ -477,8 +561,12 @@ export default function Conversations() {
 
               {selectedContact.notes && (
                 <div className="p-3 bg-accent rounded-lg">
-                  <p className="text-sm text-muted-foreground mb-1">Observações</p>
-                  <p className="text-sm text-foreground">{selectedContact.notes}</p>
+                  <p className="text-sm text-muted-foreground mb-1">
+                    Observações
+                  </p>
+                  <p className="text-sm text-foreground">
+                    {selectedContact.notes}
+                  </p>
                 </div>
               )}
             </div>
