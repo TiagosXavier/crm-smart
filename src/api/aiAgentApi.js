@@ -3,10 +3,9 @@
 // Em dev usa proxy do Vite (/ai-agent-api) para evitar CORS
 // Em produção usa a URL direta do Railway
 
-const isDev = import.meta.env.DEV;
-const AI_AGENT_API_URL = isDev
-  ? '/ai-agent-api'
-  : (import.meta.env.VITE_AI_AGENT_API_URL || 'https://crmaiagent-production.up.railway.app');
+// Em dev usa proxy do Vite, em produção usa rewrite do Vercel
+// Ambos redirecionam /ai-agent-api/* para o Railway, evitando CORS
+const AI_AGENT_API_URL = '/ai-agent-api';
 
 async function aiAgentRequest(endpoint, options = {}) {
   const url = `${AI_AGENT_API_URL}${endpoint}`;
