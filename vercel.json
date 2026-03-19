@@ -8,6 +8,10 @@
   "ignoreCommand": "git diff --quiet HEAD^ HEAD ./",
   "rewrites": [
     {
+      "source": "/ai-agent-api/:path*",
+      "destination": "https://crmaiagent-production.up.railway.app/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
