@@ -10,9 +10,23 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// CORS — whitelist de origens permitidas
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:3000')
+  .split(',')
+  .map((o) => o.trim());
+
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Permite requests sem origin (curl, server-to-server, mobile apps)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
+    credentials: true,
+  })
+);
+app.use(express.json({ limit: '10kb' }));
 
 // Database file path (JSON file for simplicity)
 const DB_DIR = join(__dirname, 'db');
@@ -309,10 +323,34 @@ app.use('/api/aiconfigs', createCRUDRoutes('AIConfig', 'aiconfigs'));
 app.use('/api/notifications', createCRUDRoutes('Notification', 'notifications'));
 
 // ============================================================================
-// SEED ROUTE - Initialize with mock data
+// ADMIN MIDDLEWARE - Protege rotas administrativas com ADMIN_SECRET
 // ============================================================================
 
-app.post('/api/seed', async (req, res) => {
+function requireAdmin(req, res, next) {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const adminSecret = process.env.ADMIN_SECRET;
+
+  // Em produção, bloqueia se ADMIN_SECRET não estiver configurado
+  if (isProduction && !adminSecret) {
+    return res.status(403).json({ error: 'Admin routes are disabled in production' });
+  }
+
+  // Se ADMIN_SECRET está configurado, exige o header
+  if (adminSecret) {
+    const provided = req.headers['x-admin-secret'];
+    if (provided !== adminSecret) {
+      return res.status(401).json({ error: 'Invalid or missing admin secret' });
+    }
+  }
+
+  next();
+}
+
+// ============================================================================
+// SEED ROUTE - Initialize with mock data (protegido)
+// ============================================================================
+
+app.post('/api/seed', requireAdmin, async (req, res) => {
   try {
     const db = await readDB();
 
@@ -340,10 +378,10 @@ app.post('/api/seed', async (req, res) => {
 });
 
 // ============================================================================
-// RESET ROUTE - Clear database (development only)
+// RESET ROUTE - Clear database (protegido)
 // ============================================================================
 
-app.post('/api/reset', async (req, res) => {
+app.post('/api/reset', requireAdmin, async (req, res) => {
   try {
     await writeDB({ ...INITIAL_DB });
     res.json({ message: 'Database reset successfully' });

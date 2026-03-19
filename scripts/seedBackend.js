@@ -2,6 +2,7 @@
 import { generateMockContacts, generateMockConversations, generateMockTasks, generateMockUsers, generateMockTemplates } from '../src/lib/mockData.js';
 
 const API_URL = process.env.VITE_API_URL || 'http://localhost:3000/api';
+const ADMIN_SECRET = process.env.ADMIN_SECRET || '';
 
 async function seedBackend() {
   console.log('🌱 Iniciando seed do backend...\n');
@@ -35,6 +36,7 @@ async function seedBackend() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        ...(ADMIN_SECRET && { 'x-admin-secret': ADMIN_SECRET }),
       },
       body: JSON.stringify({
         contacts,
