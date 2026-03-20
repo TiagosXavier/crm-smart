@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import cookieParser from 'cookie-parser';
 import { z } from 'zod';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -37,6 +38,7 @@ app.use(
   })
 );
 app.use(express.json({ limit: '10kb' }));
+app.use(cookieParser());
 
 // Rate limiting — limite global
 const globalLimiter = rateLimit({
@@ -62,9 +64,36 @@ app.use('/api', globalLimiter);
 // JWT AUTH MIDDLEWARE
 // ============================================================================
 
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
+// Cookie options para httpOnly
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: IS_PRODUCTION,
+  sameSite: IS_PRODUCTION ? 'strict' : 'lax',
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
+  path: '/',
+};
+
+// Helper: seta o cookie auth_token na resposta
+function setAuthCookie(res, token) {
+  res.cookie('auth_token', token, COOKIE_OPTIONS);
+}
+
+// Helper: limpa o cookie auth_token
+function clearAuthCookie(res) {
+  res.clearCookie('auth_token', { path: '/' });
+}
+
 function authenticateToken(req, res, next) {
-  const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.startsWith('Bearer ') && authHeader.split(' ')[1];
+  // 1. Tenta ler do cookie httpOnly (preferido)
+  let token = req.cookies?.auth_token;
+
+  // 2. Fallback: Bearer header (para scripts/API clients externos)
+  if (!token) {
+    const authHeader = req.headers.authorization;
+    token = authHeader && authHeader.startsWith('Bearer ') && authHeader.split(' ')[1];
+  }
 
   if (!token) {
     return res.status(401).json({ error: 'Access token required' });
@@ -136,6 +165,54 @@ function validateBody(collectionName) {
     next();
   };
 }
+
+// ============================================================================
+// AUDIT LOG — registra ações de escrita
+// ============================================================================
+
+const AUDIT_LOG_FILE = join(__dirname, 'db', 'audit.log');
+
+async function auditLog(action, { userId, userEmail, method, path, entityId, ip }) {
+  const entry = JSON.stringify({
+    timestamp: new Date().toISOString(),
+    action,
+    userId: userId || 'anonymous',
+    userEmail: userEmail || 'unknown',
+    method,
+    path,
+    entityId: entityId || null,
+    ip,
+  });
+
+  try {
+    await fs.appendFile(AUDIT_LOG_FILE, entry + '\n');
+  } catch {
+    console.error('Failed to write audit log');
+  }
+}
+
+// Middleware de auditoria — registra POST, PUT, DELETE
+function auditMiddleware(req, res, next) {
+  const originalJson = res.json.bind(res);
+
+  if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+    res.json = (body) => {
+      auditLog(req.method, {
+        userId: req.user?.id,
+        userEmail: req.user?.email,
+        method: req.method,
+        path: req.originalUrl,
+        entityId: req.params?.id || body?.id,
+        ip: req.ip,
+      });
+      return originalJson(body);
+    };
+  }
+
+  next();
+}
+
+app.use('/api', auditMiddleware);
 
 // Database file path (JSON file for simplicity)
 const DB_DIR = join(__dirname, 'db');
@@ -393,7 +470,8 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
     await writeDB(db);
 
     const token = generateToken(user);
-    res.status(201).json({ user: sanitizeUser(user), token });
+    setAuthCookie(res, token);
+    res.status(201).json({ user: sanitizeUser(user) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -421,10 +499,17 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     }
 
     const token = generateToken(user);
-    res.json({ user: sanitizeUser(user), token });
+    setAuthCookie(res, token);
+    res.json({ user: sanitizeUser(user) });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
+});
+
+// POST /api/auth/logout — limpa o cookie
+app.post('/api/auth/logout', (_req, res) => {
+  clearAuthCookie(res);
+  res.json({ message: 'Logged out' });
 });
 
 // GET /api/auth/me — usuário atual (requer JWT válido)
