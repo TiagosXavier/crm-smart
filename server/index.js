@@ -30,9 +30,11 @@ const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http:
 app.use(
   cors({
     origin(origin, callback) {
-      // Permite requests sem origin (curl, server-to-server, mobile apps)
+      // Permite requests sem origin (curl, server-to-server, mobile apps, same-origin on Vercel)
       if (!origin) return callback(null, true);
       if (allowedOrigins.includes(origin)) return callback(null, true);
+      // Allow any *.vercel.app origin (same project deployments)
+      if (origin.endsWith('.vercel.app')) return callback(null, true);
       callback(new Error(`Origin ${origin} not allowed by CORS`));
     },
     credentials: true,
@@ -71,7 +73,7 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const COOKIE_OPTIONS = {
   httpOnly: true,
   secure: IS_PRODUCTION,
-  sameSite: IS_PRODUCTION ? 'strict' : 'lax',
+  sameSite: 'lax', // 'lax' works for same-origin and top-level navigations
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias
   path: '/',
 };
@@ -198,7 +200,7 @@ function validateBody(collectionName) {
 // AUDIT LOG — registra ações de escrita
 // ============================================================================
 
-const AUDIT_LOG_FILE = join(__dirname, 'db', 'audit.log');
+const AUDIT_LOG_FILE = join(DB_DIR, 'audit.log');
 const AUDIT_LOG_MAX_SIZE = 5 * 1024 * 1024; // 5MB
 const AUDIT_LOG_MAX_BACKUPS = 3; // audit.log.1, audit.log.2, audit.log.3
 
@@ -267,7 +269,8 @@ function auditMiddleware(req, res, next) {
 app.use('/api', auditMiddleware);
 
 // Database file path (JSON file for simplicity)
-const DB_DIR = join(__dirname, 'db');
+// On Vercel serverless, use /tmp (writable but ephemeral)
+const DB_DIR = process.env.VERCEL === '1' ? '/tmp/db' : join(__dirname, 'db');
 const DB_FILE = join(DB_DIR, 'database.json');
 
 // Initial database structure
@@ -689,11 +692,18 @@ app.post('/api/reset', requireAdmin, async (req, res) => {
   }
 });
 
-// Initialize and start server
-initDatabase().then(() => {
-  app.listen(PORT, () => {
-    console.log(`🚀 Backend server running on http://localhost:${PORT}`);
-    console.log(`📦 Database: ${DB_FILE}`);
-    console.log(`✅ API ready at http://localhost:${PORT}/api`);
+// Initialize and start server (only when running directly, not as serverless)
+if (process.env.VERCEL !== '1') {
+  initDatabase().then(() => {
+    app.listen(PORT, () => {
+      console.log(`🚀 Backend server running on http://localhost:${PORT}`);
+      console.log(`📦 Database: ${DB_FILE}`);
+      console.log(`✅ API ready at http://localhost:${PORT}/api`);
+    });
   });
-});
+} else {
+  // Vercel serverless — init DB synchronously on first request
+  initDatabase();
+}
+
+export default app;
