@@ -1,5 +1,10 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
+import { z } from 'zod';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import fs from 'fs/promises';
@@ -9,6 +14,11 @@ const __dirname = dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
+
+// Helmet — headers de segurança
+app.use(helmet());
 
 // CORS — whitelist de origens permitidas
 const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:3000')
@@ -27,6 +37,105 @@ app.use(
   })
 );
 app.use(express.json({ limit: '10kb' }));
+
+// Rate limiting — limite global
+const globalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 100, // 100 requests por IP por janela
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later' },
+});
+
+// Rate limiting — mais restritivo para auth
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10, // 10 tentativas de login por IP por 15min
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts, please try again later' },
+});
+
+app.use('/api', globalLimiter);
+
+// ============================================================================
+// JWT AUTH MIDDLEWARE
+// ============================================================================
+
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.startsWith('Bearer ') && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: 'Access token required' });
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
+}
+
+// ============================================================================
+// VALIDAÇÃO DE INPUT — schemas zod
+// ============================================================================
+
+const contactSchema = z.object({
+  name: z.string().min(1).max(200),
+  email: z.string().email().max(254).optional().or(z.literal('')),
+  phone: z.string().max(30).optional().or(z.literal('')),
+  cpf: z.string().max(20).optional().or(z.literal('')),
+  stage: z.string().max(50).optional(),
+  tags: z.array(z.string().max(50)).max(20).optional(),
+  notes: z.string().max(5000).optional().or(z.literal('')),
+  source: z.string().max(100).optional().or(z.literal('')),
+  assigned_to: z.string().max(100).optional().or(z.literal('')),
+}).passthrough(); // permite campos extras do frontend
+
+const taskSchema = z.object({
+  title: z.string().min(1).max(300),
+  description: z.string().max(5000).optional().or(z.literal('')),
+  status: z.string().max(50).optional(),
+  priority: z.string().max(50).optional(),
+  due_date: z.string().max(50).optional().or(z.literal('')),
+  contact_id: z.string().max(100).optional().or(z.literal('')),
+  assigned_to: z.string().max(100).optional().or(z.literal('')),
+}).passthrough();
+
+const conversationSchema = z.object({
+  contact_id: z.string().max(100).optional(),
+  message: z.string().max(10000).optional().or(z.literal('')),
+  channel: z.string().max(50).optional(),
+  direction: z.string().max(20).optional(),
+}).passthrough();
+
+// Mapa de schemas por collection
+const validationSchemas = {
+  contacts: contactSchema,
+  tasks: taskSchema,
+  conversations: conversationSchema,
+};
+
+// Middleware de validação — aplica schema se existir para a collection
+function validateBody(collectionName) {
+  return (req, res, next) => {
+    const schema = validationSchemas[collectionName];
+    if (!schema || req.method === 'GET' || req.method === 'DELETE') return next();
+
+    const result = schema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: result.error.issues.map((i) => ({ field: i.path.join('.'), message: i.message })),
+      });
+    }
+    req.body = result.data;
+    next();
+  };
+}
 
 // Database file path (JSON file for simplicity)
 const DB_DIR = join(__dirname, 'db');
@@ -231,96 +340,146 @@ app.get('/api/health', (req, res) => {
 });
 
 // ============================================================================
-// AUTH ROUTES (simplificado para desenvolvimento)
+// AUTH ROUTES — JWT real com bcrypt
 // ============================================================================
 
-app.get('/api/auth/me', async (req, res) => {
-  // Em desenvolvimento, retorna usuário mock
-  // Em produção, verificar token JWT
-  const authHeader = req.headers.authorization;
+// Helper: gera JWT com dados do usuário
+function generateToken(user) {
+  return jwt.sign(
+    { id: user.id, email: user.email, role: user.role },
+    JWT_SECRET,
+    { expiresIn: JWT_EXPIRES_IN }
+  );
+}
 
-  if (authHeader) {
-    // Simula verificação de token
-    const db = await readDB();
-    const user = db.users?.[0] || {
-      id: 'dev-user-1',
-      email: 'dev@example.com',
-      full_name: 'Usuário Dev',
-      role: 'admin',
-      status: 'online',
-    };
-    res.json(user);
-  } else {
-    res.status(401).json({ error: 'Not authenticated' });
-  }
-});
+// Helper: retorna user sem o campo password_hash
+function sanitizeUser(user) {
+  const { password_hash, ...safe } = user;
+  return safe;
+}
 
-app.put('/api/auth/me', async (req, res) => {
-  const authHeader = req.headers.authorization;
-
-  if (!authHeader) {
-    return res.status(401).json({ error: 'Not authenticated' });
-  }
-
+// POST /api/auth/register — criar conta com senha real
+app.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
-    const db = await readDB();
-    // Find the first user (simplified - in production, decode JWT)
-    if (db.users && db.users.length > 0) {
-      db.users[0] = {
-        ...db.users[0],
-        ...req.body,
-        updated_date: new Date().toISOString(),
-      };
-      await writeDB(db);
-      res.json(db.users[0]);
-    } else {
-      res.status(404).json({ error: 'User not found' });
+    const { email, password, full_name } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
     }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
+
+    const db = await readDB();
+    if (!db.users) db.users = [];
+
+    if (db.users.find((u) => u.email === email)) {
+      return res.status(409).json({ error: 'Email already registered' });
+    }
+
+    const password_hash = await bcrypt.hash(password, 10);
+    const user = {
+      id: generateId(),
+      email,
+      full_name: full_name || email.split('@')[0],
+      password_hash,
+      role: db.users.length === 0 ? 'admin' : 'user', // primeiro user é admin
+      status: 'online',
+      created_date: new Date().toISOString(),
+      updated_date: new Date().toISOString(),
+    };
+
+    db.users.push(user);
+    await writeDB(db);
+
+    const token = generateToken(user);
+    res.status(201).json({ user: sanitizeUser(user), token });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.post('/api/auth/login', async (req, res) => {
-  const { email, password } = req.body;
+// POST /api/auth/login — login com verificação de senha
+app.post('/api/auth/login', authLimiter, async (req, res) => {
+  try {
+    const { email, password } = req.body;
 
-  // Em desenvolvimento, aceita qualquer login
-  // Em produção, verificar credenciais no banco
-  const db = await readDB();
-  let user = db.users?.find((u) => u.email === email);
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required' });
+    }
 
-  if (!user) {
-    // Cria usuário se não existir (modo dev)
-    user = {
-      id: generateId(),
-      email,
-      full_name: email.split('@')[0],
-      role: 'admin',
-      status: 'online',
-      created_date: new Date().toISOString(),
-    };
-    if (!db.users) db.users = [];
-    db.users.push(user);
-    await writeDB(db);
+    const db = await readDB();
+    const user = db.users?.find((u) => u.email === email);
+
+    if (!user || !user.password_hash) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const valid = await bcrypt.compare(password, user.password_hash);
+    if (!valid) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const token = generateToken(user);
+    res.json({ user: sanitizeUser(user), token });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
+});
 
-  // Gera token simples (em produção, usar JWT)
-  const token = Buffer.from(`${user.id}:${Date.now()}`).toString('base64');
+// GET /api/auth/me — usuário atual (requer JWT válido)
+app.get('/api/auth/me', authenticateToken, async (req, res) => {
+  try {
+    const db = await readDB();
+    const user = db.users?.find((u) => u.id === req.user.id);
 
-  res.json({ user, token });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json(sanitizeUser(user));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /api/auth/me — atualizar perfil (requer JWT válido)
+app.put('/api/auth/me', authenticateToken, async (req, res) => {
+  try {
+    const db = await readDB();
+    const index = db.users?.findIndex((u) => u.id === req.user.id);
+
+    if (index === -1 || index === undefined) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Não permite alterar campos sensíveis via esta rota
+    const { password_hash, role, id, email, ...allowedUpdates } = req.body;
+
+    db.users[index] = {
+      ...db.users[index],
+      ...allowedUpdates,
+      updated_date: new Date().toISOString(),
+    };
+
+    await writeDB(db);
+    res.json(sanitizeUser(db.users[index]));
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 });
 
 // ============================================================================
 // ENTITY ROUTES
 // ============================================================================
 
-app.use('/api/contacts', createCRUDRoutes('Contact', 'contacts'));
-app.use('/api/conversations', createCRUDRoutes('Conversation', 'conversations'));
-app.use('/api/tasks', createCRUDRoutes('Task', 'tasks'));
-app.use('/api/users', createCRUDRoutes('User', 'users'));
-app.use('/api/templates', createCRUDRoutes('Template', 'templates'));
-app.use('/api/aiconfigs', createCRUDRoutes('AIConfig', 'aiconfigs'));
-app.use('/api/notifications', createCRUDRoutes('Notification', 'notifications'));
+app.use('/api/contacts', authenticateToken, validateBody('contacts'), createCRUDRoutes('Contact', 'contacts'));
+app.use('/api/conversations', authenticateToken, validateBody('conversations'), createCRUDRoutes('Conversation', 'conversations'));
+app.use('/api/tasks', authenticateToken, validateBody('tasks'), createCRUDRoutes('Task', 'tasks'));
+app.use('/api/users', authenticateToken, createCRUDRoutes('User', 'users'));
+app.use('/api/templates', authenticateToken, createCRUDRoutes('Template', 'templates'));
+app.use('/api/aiconfigs', authenticateToken, createCRUDRoutes('AIConfig', 'aiconfigs'));
+app.use('/api/notifications', authenticateToken, createCRUDRoutes('Notification', 'notifications'));
 
 // ============================================================================
 // ADMIN MIDDLEWARE - Protege rotas administrativas com ADMIN_SECRET
