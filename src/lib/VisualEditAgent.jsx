@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { twMerge } from 'tailwind-merge'
 
+// Origem permitida para postMessage — restringe comunicação ao parent legítimo
+const ALLOWED_ORIGIN = import.meta.env.VITE_PARENT_ORIGIN || window.location.origin;
+
 export default function VisualEditAgent() {
 	// this functions job is to receive first a message from the parent window, to set or unset visual edits mode. 
 	// once in visual edits mode, every hover over an elelmnt that has linenumbers should show an overlay, when clicked - it should stick the overlay and send a message to the parent window with the selected element
@@ -165,7 +168,7 @@ export default function VisualEditAgent() {
 			// Send message to parent to close all dropdowns
 			window.parent.postMessage({
 				type: 'close-dropdowns'
-			}, '*');
+			}, ALLOWED_ORIGIN);
 			return;
 		}
 
@@ -239,7 +242,7 @@ export default function VisualEditAgent() {
 			filename: element.dataset.filename, // Keep for backward compatibility
 			position: elementPosition // Add position data for popover
 		};
-		window.parent.postMessage(elementData, '*');
+		window.parent.postMessage(elementData, ALLOWED_ORIGIN);
 	};
 
 	// Unselect the current element
@@ -406,14 +409,14 @@ export default function VisualEditAgent() {
 						position: elementPosition,
 						isInViewport: isInViewport,
 						visualSelectorId: selectedElementIdRef.current
-					}, '*');
+					}, ALLOWED_ORIGIN);
 				}
 			}
 		};
 
 		const handleMessage = (event) => {
-			// Check origin if desired
-			//if (event.origin !== 'parent-origin') return;
+			// Validar origem da mensagem
+			if (event.origin !== ALLOWED_ORIGIN) return;
 
 			const message = event.data;
 
@@ -490,7 +493,7 @@ export default function VisualEditAgent() {
 								position: elementPosition,
 								isInViewport: isInViewport,
 								visualSelectorId: selectedElementIdRef.current
-							}, '*');
+							}, ALLOWED_ORIGIN);
 						}
 					}
 					break;
@@ -531,7 +534,7 @@ export default function VisualEditAgent() {
 		document.addEventListener('scroll', handleScroll, true); // Also listen on document
 
 		// Send ready message to parent
-		window.parent.postMessage({ type: 'visual-edit-agent-ready' }, '*');
+		window.parent.postMessage({ type: 'visual-edit-agent-ready' }, ALLOWED_ORIGIN);
 
 		return () => {
 			window.removeEventListener('message', handleMessage);

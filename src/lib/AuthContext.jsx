@@ -20,26 +20,17 @@ export const AuthProvider = ({ children }) => {
     setAuthError(null);
 
     try {
-      const token = localStorage.getItem('auth_token');
-
-      if (token) {
-        const currentUser = await api.auth.me();
-        if (currentUser) {
-          setUser(currentUser);
-          setIsAuthenticated(true);
-        } else {
-          // Token inválido ou expirado
-          localStorage.removeItem('auth_token');
-          setUser(null);
-          setIsAuthenticated(false);
-        }
+      // Cookie httpOnly é enviado automaticamente pelo browser
+      const currentUser = await api.auth.me();
+      if (currentUser) {
+        setUser(currentUser);
+        setIsAuthenticated(true);
       } else {
         setUser(null);
         setIsAuthenticated(false);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      localStorage.removeItem('auth_token');
       setUser(null);
       setIsAuthenticated(false);
     } finally {
@@ -81,14 +72,14 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
     setUser(null);
     setIsAuthenticated(false);
-    api.auth.logout();
+    await api.auth.logout();
   };
 
   const navigateToLogin = () => {
-    api.auth.redirectToLogin(window.location.href);
+    api.auth.redirectToLogin();
   };
 
   return (

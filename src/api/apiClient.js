@@ -3,23 +3,18 @@
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
-// Helper para fazer requisições
+// Helper para fazer requisições — usa cookies httpOnly (credentials: include)
 async function request(endpoint, options = {}) {
   const url = `${API_URL}${endpoint}`;
 
   const config = {
+    credentials: 'include', // envia cookies httpOnly automaticamente
     headers: {
       'Content-Type': 'application/json',
       ...options.headers,
     },
     ...options,
   };
-
-  // Adiciona token de auth se existir
-  const token = localStorage.getItem('auth_token');
-  if (token) {
-    config.headers['Authorization'] = `Bearer ${token}`;
-  }
 
   try {
     const response = await fetch(url, config);
@@ -114,45 +109,35 @@ const createAuthMethods = () => {
       });
     },
 
-    // Register
+    // Register — cookie é setado pelo server via Set-Cookie httpOnly
     register: async (email, password, full_name) => {
-      const result = await request('/auth/register', {
+      return await request('/auth/register', {
         method: 'POST',
         body: JSON.stringify({ email, password, full_name }),
       });
-      if (result.token) {
-        localStorage.setItem('auth_token', result.token);
-      }
-      return result;
     },
 
-    // Login
+    // Login — cookie é setado pelo server via Set-Cookie httpOnly
     login: async (email, password) => {
-      const result = await request('/auth/login', {
+      return await request('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      if (result.token) {
-        localStorage.setItem('auth_token', result.token);
+    },
+
+    // Logout — server limpa o cookie
+    logout: async () => {
+      try {
+        await request('/auth/logout', { method: 'POST' });
+      } catch {
+        // ignora erro se server offline
       }
-      return result;
-    },
-
-    // Logout
-    logout: () => {
-      localStorage.removeItem('auth_token');
       window.location.href = '/login';
     },
 
-    // Redirect to login (compatibilidade)
-    redirectToLogin: (returnUrl) => {
-      localStorage.setItem('auth_return_url', returnUrl || window.location.href);
+    // Redirect to login
+    redirectToLogin: () => {
       window.location.href = '/login';
-    },
-
-    // Check if authenticated
-    isAuthenticated: () => {
-      return !!localStorage.getItem('auth_token');
     },
   };
 };
