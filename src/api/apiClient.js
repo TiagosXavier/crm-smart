@@ -94,7 +94,7 @@ const createEntityMethods = (entityName) => {
   };
 };
 
-// Auth methods (simplificado - sem Base44)
+// Auth methods — JWT real
 const createAuthMethods = () => {
   return {
     // Get current user
@@ -114,6 +114,18 @@ const createAuthMethods = () => {
       });
     },
 
+    // Register
+    register: async (email, password, full_name) => {
+      const result = await request('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({ email, password, full_name }),
+      });
+      if (result.token) {
+        localStorage.setItem('auth_token', result.token);
+      }
+      return result;
+    },
+
     // Login
     login: async (email, password) => {
       const result = await request('/auth/login', {
@@ -129,8 +141,7 @@ const createAuthMethods = () => {
     // Logout
     logout: () => {
       localStorage.removeItem('auth_token');
-      // Opcional: redirecionar
-      window.location.href = '/';
+      window.location.href = '/login';
     },
 
     // Redirect to login (compatibilidade)

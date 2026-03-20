@@ -20,48 +20,47 @@ export const AuthProvider = ({ children }) => {
     setAuthError(null);
 
     try {
-      // Verifica se há token salvo
       const token = localStorage.getItem('auth_token');
 
       if (token) {
-        // Tenta obter o usuário atual
         const currentUser = await api.auth.me();
         if (currentUser) {
           setUser(currentUser);
           setIsAuthenticated(true);
         } else {
-          // Token inválido, remove
+          // Token inválido ou expirado
           localStorage.removeItem('auth_token');
+          setUser(null);
           setIsAuthenticated(false);
         }
       } else {
-        // Sem token - modo desenvolvimento, cria usuário mock
-        const mockUser = {
-          id: 'dev-user-1',
-          email: 'dev@example.com',
-          full_name: 'Usuário Dev',
-          role: 'admin',
-          status: 'online',
-          company_id: 'd0f0c0d0-0000-0000-0000-000000000001',
-        };
-        setUser(mockUser);
-        setIsAuthenticated(true);
+        setUser(null);
+        setIsAuthenticated(false);
       }
     } catch (error) {
       console.error('Auth check failed:', error);
-      // Em desenvolvimento, usa usuário mock mesmo com erro
-      const mockUser = {
-        id: 'dev-user-1',
-        email: 'dev@example.com',
-        full_name: 'Usuário Dev',
-        role: 'admin',
-        status: 'online',
-        company_id: 'd0f0c0d0-0000-0000-0000-000000000001',
-      };
-      setUser(mockUser);
-      setIsAuthenticated(true);
+      localStorage.removeItem('auth_token');
+      setUser(null);
+      setIsAuthenticated(false);
     } finally {
       setIsLoadingAuth(false);
+    }
+  };
+
+  const register = async (email, password, full_name) => {
+    try {
+      const result = await api.auth.register(email, password, full_name);
+      if (result.user) {
+        setUser(result.user);
+        setIsAuthenticated(true);
+      }
+      return result;
+    } catch (error) {
+      setAuthError({
+        type: 'register_failed',
+        message: error.message || 'Registration failed',
+      });
+      throw error;
     }
   };
 
@@ -101,6 +100,7 @@ export const AuthProvider = ({ children }) => {
         isLoadingPublicSettings,
         authError,
         appPublicSettings,
+        register,
         login,
         logout,
         navigateToLogin,
