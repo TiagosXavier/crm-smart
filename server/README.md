@@ -1,4 +1,4 @@
-# 🚀 Backend Node.js - CRM Inteligente
+# 🚀 Backend Node.js - CRM Smart
 
 Backend API REST completo para o CRM, usando Express e JSON file database.
 

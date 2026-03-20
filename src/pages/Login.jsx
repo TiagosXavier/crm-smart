@@ -35,7 +35,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">CRM Inteligente</CardTitle>
+          <CardTitle className="text-2xl">CRM Smart</CardTitle>
           <CardDescription>
             {isRegister ? 'Crie sua conta para começar' : 'Entre com suas credenciais'}
           </CardDescription>

@@ -128,7 +128,7 @@ export default function Sidebar({ collapsed, setCollapsed, currentPage, userRole
         <div className="p-4 border-t border-border">
           <div className="bg-primary/10 rounded-lg p-3 border border-primary/20">
             <p className="text-xs text-muted-foreground">Versão 1.0.0</p>
-            <p className="text-xs text-primary mt-1">CRM Inteligente</p>
+            <p className="text-xs text-primary mt-1">CRM Smart</p>
           </div>
         </div>
       )}

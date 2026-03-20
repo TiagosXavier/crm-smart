@@ -1,4 +1,4 @@
-# Script de Seed - CRM Inteligente
+# Script de Seed - CRM Smart
 
 Este script popula o banco de dados do CRM com dados mockados para desenvolvimento e testes.
 
