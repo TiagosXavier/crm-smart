@@ -199,6 +199,29 @@ function validateBody(collectionName) {
 // ============================================================================
 
 const AUDIT_LOG_FILE = join(__dirname, 'db', 'audit.log');
+const AUDIT_LOG_MAX_SIZE = 5 * 1024 * 1024; // 5MB
+const AUDIT_LOG_MAX_BACKUPS = 3; // audit.log.1, audit.log.2, audit.log.3
+
+async function rotateAuditLog() {
+  try {
+    const stat = await fs.stat(AUDIT_LOG_FILE);
+    if (stat.size < AUDIT_LOG_MAX_SIZE) return;
+
+    // Rotaciona: .3 → apaga, .2 → .3, .1 → .2, atual → .1
+    for (let i = AUDIT_LOG_MAX_BACKUPS; i >= 1; i--) {
+      const from = i === 1 ? AUDIT_LOG_FILE : `${AUDIT_LOG_FILE}.${i - 1}`;
+      const to = `${AUDIT_LOG_FILE}.${i}`;
+      try {
+        if (i === AUDIT_LOG_MAX_BACKUPS) await fs.unlink(to).catch(() => {});
+        await fs.rename(from, to);
+      } catch {
+        // arquivo não existe, ok
+      }
+    }
+  } catch {
+    // arquivo não existe ainda, ok
+  }
+}
 
 async function auditLog(action, { userId, userEmail, method, path, entityId, ip }) {
   const entry = JSON.stringify({
@@ -213,6 +236,7 @@ async function auditLog(action, { userId, userEmail, method, path, entityId, ip 
   });
 
   try {
+    await rotateAuditLog();
     await fs.appendFile(AUDIT_LOG_FILE, entry + '\n');
   } catch {
     console.error('Failed to write audit log');
