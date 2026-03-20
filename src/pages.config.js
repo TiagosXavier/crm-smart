@@ -1,15 +1,16 @@
-import Contacts from './pages/Contacts';
-import Conversations from './pages/Conversations';
-import Dashboard from './pages/Dashboard';
-import Home from './pages/Home';
-import Pipeline from './pages/Pipeline';
-import Profile from './pages/Profile';
-import Settings from './pages/Settings';
-import Team from './pages/Team';
-import Templates from './pages/Templates';
-import AiAgents from './pages/AiAgents';
+import { lazy } from 'react';
 import __Layout from './Layout.jsx';
 
+const Contacts = lazy(() => import('./pages/Contacts'));
+const Conversations = lazy(() => import('./pages/Conversations'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Home = lazy(() => import('./pages/Home'));
+const Pipeline = lazy(() => import('./pages/Pipeline'));
+const Profile = lazy(() => import('./pages/Profile'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Team = lazy(() => import('./pages/Team'));
+const Templates = lazy(() => import('./pages/Templates'));
+const AiAgents = lazy(() => import('./pages/AiAgents'));
 
 export const PAGES = {
     "Contacts": Contacts,

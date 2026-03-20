@@ -8,6 +8,7 @@ import cookieParser from 'cookie-parser';
 import { z } from 'zod';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import crypto from 'crypto';
 import fs from 'fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -112,11 +113,38 @@ function authenticateToken(req, res, next) {
 // VALIDAÇÃO DE INPUT — schemas zod
 // ============================================================================
 
+// Validação de CPF com algoritmo mod 11
+function isValidCPF(cpf) {
+  const digits = cpf.replace(/\D/g, '');
+  if (digits.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(digits)) return false; // rejeita todos iguais (111.111.111-11)
+
+  for (let t = 9; t < 11; t++) {
+    let sum = 0;
+    for (let i = 0; i < t; i++) {
+      sum += parseInt(digits[i]) * (t + 1 - i);
+    }
+    const remainder = (sum * 10) % 11;
+    if ((remainder === 10 ? 0 : remainder) !== parseInt(digits[t])) return false;
+  }
+  return true;
+}
+
+const cpfSchema = z.string().max(20).refine(
+  (val) => !val || val === '' || isValidCPF(val),
+  { message: 'CPF inválido' }
+);
+
+const emailSchema = z.string().email().max(254).regex(
+  /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/,
+  { message: 'Email com domínio inválido' }
+);
+
 const contactSchema = z.object({
   name: z.string().min(1).max(200),
-  email: z.string().email().max(254).optional().or(z.literal('')),
+  email: emailSchema.optional().or(z.literal('')),
   phone: z.string().max(30).optional().or(z.literal('')),
-  cpf: z.string().max(20).optional().or(z.literal('')),
+  cpf: cpfSchema.optional().or(z.literal('')),
   stage: z.string().max(50).optional(),
   tags: z.array(z.string().max(50)).max(20).optional(),
   notes: z.string().max(5000).optional().or(z.literal('')),
@@ -171,6 +199,29 @@ function validateBody(collectionName) {
 // ============================================================================
 
 const AUDIT_LOG_FILE = join(__dirname, 'db', 'audit.log');
+const AUDIT_LOG_MAX_SIZE = 5 * 1024 * 1024; // 5MB
+const AUDIT_LOG_MAX_BACKUPS = 3; // audit.log.1, audit.log.2, audit.log.3
+
+async function rotateAuditLog() {
+  try {
+    const stat = await fs.stat(AUDIT_LOG_FILE);
+    if (stat.size < AUDIT_LOG_MAX_SIZE) return;
+
+    // Rotaciona: .3 → apaga, .2 → .3, .1 → .2, atual → .1
+    for (let i = AUDIT_LOG_MAX_BACKUPS; i >= 1; i--) {
+      const from = i === 1 ? AUDIT_LOG_FILE : `${AUDIT_LOG_FILE}.${i - 1}`;
+      const to = `${AUDIT_LOG_FILE}.${i}`;
+      try {
+        if (i === AUDIT_LOG_MAX_BACKUPS) await fs.unlink(to).catch(() => {});
+        await fs.rename(from, to);
+      } catch {
+        // arquivo não existe, ok
+      }
+    }
+  } catch {
+    // arquivo não existe ainda, ok
+  }
+}
 
 async function auditLog(action, { userId, userEmail, method, path, entityId, ip }) {
   const entry = JSON.stringify({
@@ -185,6 +236,7 @@ async function auditLog(action, { userId, userEmail, method, path, entityId, ip 
   });
 
   try {
+    await rotateAuditLog();
     await fs.appendFile(AUDIT_LOG_FILE, entry + '\n');
   } catch {
     console.error('Failed to write audit log');
@@ -266,9 +318,9 @@ async function writeDB(data) {
   }
 }
 
-// Generate ID
+// Generate ID — criptograficamente seguro
 function generateId() {
-  return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return crypto.randomUUID();
 }
 
 // Parse sort parameter
@@ -304,9 +356,12 @@ function createCRUDRoutes(entityName, collectionName) {
 
       let items = db[collectionName] || [];
 
-      // Apply filters
+      // Apply filters — apenas campos permitidos, comparação estrita
+      const allowedFilterKeys = ['stage', 'status', 'priority', 'channel', 'direction', 'contact_id', 'assigned_to', 'email', 'role'];
       Object.entries(filters).forEach(([key, value]) => {
-        items = items.filter((item) => item[key] == value);
+        if (allowedFilterKeys.includes(key)) {
+          items = items.filter((item) => String(item[key]) === String(value));
+        }
       });
 
       // Sort
